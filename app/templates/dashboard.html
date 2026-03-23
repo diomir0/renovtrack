@@ -1,0 +1,203 @@
+{% extends "base.html" %} {% block title %}Dashboard — RenovTrack{% endblock %} {% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <a href="/projects/new" class="btn btn-primary">+ New Project</a>
+</div>
+
+<!-- Stats row -->
+<div class="grid-3" style="margin-bottom: 2rem">
+    <div class="stat-box">
+        <div class="stat-value">{{ stats.active_projects }}</div>
+        <div class="stat-label">Active Projects</div>
+    </div>
+    <div class="stat-box blue">
+        <div class="stat-value">{{ stats.open_tasks }}</div>
+        <div class="stat-label">Open Tasks</div>
+    </div>
+    <div class="stat-box red">
+        <div class="stat-value">{{ "%.0f"|format(stats.total_spent) }} €</div>
+        <div class="stat-label">Total Spent</div>
+    </div>
+</div>
+
+<!-- Projects -->
+{% if enriched %}
+<div class="grid-2">
+    {% for p in enriched %}
+    <a href="/projects/{{ p.id }}" style="text-decoration: none; color: inherit">
+        <div class="card">
+            <div
+                style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    margin-bottom: 0.6rem;
+                "
+            >
+                <div class="card-title">{{ p.project.name }}</div>
+                <span class="badge badge-{{ p.project.status }}">{{ p.project.status }}</span>
+            </div>
+            {% if p.project.description %}
+            <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 0.75rem">
+                {{ p.project.description }}
+            </p>
+            {% endif %}
+            <div class="card-meta">
+                {% if p.project.budget_total %}
+                <span>Budget: {{ "%.0f"|format(p.project.budget_total) }} €</span>
+                {% endif %} {% if p.project.estimated_end_date %}
+                <span>Due: {{ p.project.estimated_end_date }}</span>
+                {% endif %}
+            </div>
+            {% if p.project.budget_total and p.spent %}
+            <div class="progress-bar">
+                <div
+                    class="progress-fill"
+                    style="width:{{ [p.spent / p.project.budget_total * 100, 100]|min }}%"
+                ></div>
+            </div>
+            {% endif %}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon">🏗️</div>
+    <p>No projects yet. Create your first one to get started.</p>
+</div>
+{% endif %}
+
+<!-- Upcoming tasks -->
+<h2
+    style="
+        font-family: &quot;Barlow Condensed&quot;, sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 2.5rem 0 1rem;
+    "
+>
+    Upcoming Tasks
+    <a
+        href="/calendar"
+        style="
+            font-size: 0.72rem;
+            color: var(--muted);
+            font-weight: 400;
+            margin-left: 0.75rem;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+        "
+        >Full calendar →</a
+    >
+</h2>
+
+{% if upcoming_tasks %}
+<div style="border: 1px solid var(--border); border-radius: 4px; overflow: hidden">
+    {% set ns = namespace(current_date=None) %} {% for task in upcoming_tasks %} {# Date separator
+    #} {% if task.due_date != ns.current_date %} {% if ns.current_date is not none %}
+    <div style="height: 1px; background: var(--border)"></div>
+    {% endif %} {% set ns.current_date = task.due_date %}
+    <div
+        style="
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: var(--surface);
+        "
+    >
+        <span
+            style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:700;letter-spacing:0.06em;color:{% if task.is_today %}var(--accent){% elif task.is_overdue %}#c05040{% else %}var(--text){% endif %}"
+        >
+            {{ task.due_date.strftime('%a %d %b') }}
+        </span>
+        {% if task.is_today %}
+        <span
+            style="
+                font-size: 0.65rem;
+                font-weight: 600;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: var(--accent);
+                background: #2a1f00;
+                padding: 0.15rem 0.45rem;
+                border-radius: 2px;
+            "
+            >Today</span
+        >
+        {% elif task.is_overdue %}
+        <span
+            style="
+                font-size: 0.65rem;
+                font-weight: 600;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: #c05040;
+                background: #2a1010;
+                padding: 0.15rem 0.45rem;
+                border-radius: 2px;
+            "
+            >Overdue</span
+        >
+        {% endif %}
+    </div>
+    {% endif %} {# Task row #}
+    <a href="/projects/{{ task.project_id }}" style="text-decoration: none; color: inherit">
+        <div
+            style="
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.55rem 1rem 0.55rem 1.75rem;
+                transition: background 0.1s;
+            "
+            onmouseover="this.style.background='#1e1e1e'"
+            onmouseout="this.style.background=''"
+        >
+            <span
+                style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:{% if task.priority == 'urgent' %}#c05040{% elif task.priority == 'high' %}var(--accent){% elif task.priority == 'normal' %}var(--accent2){% else %}var(--muted){% endif %}"
+            ></span>
+            <span style="flex: 1; font-size: 0.88rem">{{ task.title }}</span>
+            <span style="font-size: 0.75rem; color: var(--muted)">{{ task.project_name }}</span>
+            <span class="badge badge-{{ task.status }}">{{ task.status }}</span>
+        </div>
+    </a>
+
+    {% endfor %}
+</div>
+
+{% else %}
+<div style="color: var(--muted); font-size: 0.85rem; padding: 1rem 0">
+    No upcoming tasks with a due date.
+</div>
+{% endif %}
+
+<!-- Recent logs -->
+{% if recent_logs %}
+<h2
+    style="
+        font-family: &quot;Barlow Condensed&quot;, sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 2.5rem 0 1rem;
+    "
+>
+    Recent Activity
+</h2>
+{% for log in recent_logs %}
+<div class="log-entry">
+    <div class="log-date">{{ log.date }} — {{ log.author }}</div>
+    <div class="log-summary">{{ log.summary or "No summary." }}</div>
+    <div class="log-chips">
+        <span class="log-chip">{{ log.time_spent_hours }}h</span>
+        {% if log.people_involved %} {% for person in log.get_people() %}
+        <span class="log-chip">{{ person }}</span>
+        {% endfor %} {% endif %}
+    </div>
+</div>
+{% endfor %} {% endif %} {% endblock %}

@@ -1,0 +1,321 @@
+{% extends "base.html" %} {% block title %}{{ project.name }} — RenovTrack{% endblock %} {% block
+content %}
+<div class="page-header">
+    <div>
+        <div
+            style="
+                font-size: 0.75rem;
+                color: var(--muted);
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                margin-bottom: 0.3rem;
+            "
+        >
+            Project
+        </div>
+        <h1>{{ project.name }}</h1>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center">
+        <span class="badge badge-{{ project.status }}">{{ project.status }}</span>
+        <button
+            class="btn btn-secondary btn-sm"
+            hx-get="/projects/{{ project.id }}/edit"
+            hx-target="#modal-container"
+            hx-swap="innerHTML"
+        >
+            Edit
+        </button>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="grid-3" style="margin-bottom: 2rem">
+    <div class="stat-box">
+        <div class="stat-value">{{ task_counts.get('done', 0) }}/{{ task_total }}</div>
+        <div class="stat-label">Tasks Done</div>
+    </div>
+    <div class="stat-box red">
+        <div class="stat-value">{{ "%.0f"|format(total_spent) }} €</div>
+        <div class="stat-label">
+            Spent {% if project.budget_total %}/ {{ "%.0f"|format(project.budget_total) }} €{% endif
+            %}
+        </div>
+    </div>
+    <div class="stat-box blue">
+        <div class="stat-value">{{ total_hours }}h</div>
+        <div class="stat-label">Logged Hours</div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+    <a class="tab active" href="#tasks" onclick="showTab(event,'tasks')">Tasks</a>
+    <a class="tab" href="#inventory" onclick="showTab(event,'inventory')">Inventory</a>
+    <a class="tab" href="#expenses" onclick="showTab(event,'expenses')">Expenses</a>
+    <a class="tab" href="#logs" onclick="showTab(event,'logs')">Daily Logs</a>
+</div>
+
+<!-- Tasks tab -->
+<div id="tab-tasks">
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem">
+        <button
+            class="btn btn-primary btn-sm"
+            hx-get="/projects/{{ project.id }}/tasks/new"
+            hx-target="#modal-container"
+            hx-swap="innerHTML"
+        >
+            + Task
+        </button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Task</th>
+                <th>Zone</th>
+                <th>Assigned</th>
+                <th>Due</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="tasks-list">
+            {% for t in tasks %}
+            <tr>
+                <td>{{ t.title }}</td>
+                <td style="color: var(--muted)">{{ t.zone.name if t.zone else "—" }}</td>
+                <td style="color: var(--muted)">{{ t.assigned_to or "—" }}</td>
+                <td style="color: var(--muted)">{{ t.due_date or "—" }}</td>
+                <td>
+                    <span
+                        class="badge badge-{{ t.priority }}"
+                        style="background: #2a2a2a; color: var(--muted)"
+                        >{{ t.priority }}</span
+                    >
+                </td>
+                <td><span class="badge badge-{{ t.status }}">{{ t.status }}</span></td>
+                <td>
+                    <button
+                        class="btn btn-secondary btn-sm"
+                        hx-get="/tasks/{{ t.id }}/edit"
+                        hx-target="#modal-container"
+                        hx-swap="innerHTML"
+                    >
+                        Edit
+                    </button>
+                    <button
+                        class="btn btn-danger btn-sm"
+                        hx-delete="/tasks/{{ t.id }}"
+                        hx-confirm="Delete {{ t.title }}?"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML"
+                        style="margin-left: 0.25rem"
+                    >
+                        ✕
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if not tasks %}
+    <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <p>No tasks yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Inventory tab -->
+<div id="tab-inventory" style="display: none">
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem">
+        <button
+            class="btn btn-primary btn-sm"
+            hx-get="/projects/{{ project.id }}/inventory/new"
+            hx-target="#modal-container"
+            hx-swap="innerHTML"
+        >
+            + Item
+        </button>
+    </div>
+    {% if inventory %}
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Qty</th>
+                <th>Supplier</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in inventory %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td style="color: var(--muted)">{{ item.category }}</td>
+                <td>{{ item.quantity }} {{ item.unit }}</td>
+                <td style="color: var(--muted)">{{ item.supplier or "—" }}</td>
+                <td><span class="badge badge-{{ item.status }}">{{ item.status }}</span></td>
+                <td>
+                    <button
+                        class="btn btn-secondary btn-sm"
+                        hx-get="/inventory/{{ item.id }}/edit"
+                        hx-target="#modal-container"
+                        hx-swap="innerHTML"
+                    >
+                        Edit
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📦</div>
+        <p>No inventory items yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Expenses tab -->
+<div id="tab-expenses" style="display: none">
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem">
+        <button
+            class="btn btn-primary btn-sm"
+            hx-get="/projects/{{ project.id }}/expenses/new"
+            hx-target="#modal-container"
+            hx-swap="innerHTML"
+        >
+            + Expense
+        </button>
+    </div>
+    {% if expenses %}
+    <table>
+        <thead>
+            <tr>
+                <th>Label</th>
+                <th>Category</th>
+                <th>Zone</th>
+                <th>Paid by</th>
+                <th>Date</th>
+                <th style="text-align: right">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in expenses %}
+            <tr>
+                <td>{{ e.label }}</td>
+                <td style="color: var(--muted)">{{ e.category }}</td>
+                <td style="color: var(--muted)">{{ e.zone.name if e.zone else "—" }}</td>
+                <td style="color: var(--muted)">{{ e.paid_by or "—" }}</td>
+                <td style="color: var(--muted)">{{ e.date }}</td>
+                <td
+                    style="
+                        text-align: right;
+                        font-family: &quot;Barlow Condensed&quot;, sans-serif;
+                        font-size: 1rem;
+                        color: var(--accent);
+                    "
+                >
+                    {{ "%.2f"|format(e.amount) }} €
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">💶</div>
+        <p>No expenses logged yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Logs tab -->
+<div id="tab-logs" style="display: none">
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem">
+        <a href="/logs/new?project_id={{ project.id }}" class="btn btn-primary btn-sm"
+            >+ Daily Log</a
+        >
+    </div>
+    {% if logs %} {% for log in logs %}
+    <div class="log-entry">
+        <div class="log-date">{{ log.date }} — {{ log.author }}</div>
+        <div class="log-summary">{{ log.summary or "No summary." }}</div>
+        <div class="log-chips" style="margin-top: 0.4rem">
+            <span class="log-chip">⏱ {{ log.time_spent_hours }}h</span>
+            {% for person in log.get_people() %}
+            <span class="log-chip">👤 {{ person }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %} {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📅</div>
+        <p>No logs yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- LLM Assistant -->
+<div style="margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 1.5rem">
+    <h2
+        style="
+            font-family: &quot;Barlow Condensed&quot;, sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 1rem;
+        "
+    >
+        ◈ Ask the Assistant
+    </h2>
+    <div style="display: flex; gap: 0.75rem">
+        <input
+            type="text"
+            id="assistant-input"
+            placeholder="e.g. What tasks are still blocked? How much did we spend on materials?"
+            style="flex: 1"
+        />
+        <button
+            class="btn btn-secondary"
+            hx-post="/assistant/query"
+            hx-include="#assistant-input"
+            hx-vals='{"project_id": {{ project.id }} }'
+            hx-target="#assistant-answer"
+            hx-swap="innerHTML"
+        >
+            Ask
+        </button>
+    </div>
+    <div
+        id="assistant-answer"
+        style="
+            margin-top: 1rem;
+            font-size: 0.88rem;
+            line-height: 1.6;
+            color: var(--text);
+            min-height: 2rem;
+        "
+    ></div>
+</div>
+
+<script>
+    function showTab(e, name) {
+        e.preventDefault();
+        ["tasks", "inventory", "expenses", "logs"].forEach((t) => {
+            document.getElementById("tab-" + t).style.display = t === name ? "block" : "none";
+        });
+        document.querySelectorAll(".tab").forEach((el) => {
+            el.classList.toggle("active", el.getAttribute("href") === "#" + name);
+        });
+    }
+</script>
+
+{% endblock %}

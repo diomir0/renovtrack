@@ -1,0 +1,87 @@
+{% extends "base.html" %} {% block title %}Projects — RenovTrack{% endblock %} {% block content %}
+<div class="page-header">
+    <h1>Projects</h1>
+    <a href="/projects/new" class="btn btn-primary">+ New Project</a>
+</div>
+
+{% if projects %}
+<div style="display: flex; flex-direction: column; gap: 0.75rem">
+    {% for p in projects %}
+    <a href="/projects/{{ p.project.id }}" style="text-decoration: none; color: inherit">
+        <div
+            class="card"
+            style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center"
+        >
+            <div>
+                <div
+                    style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.4rem"
+                >
+                    <div class="card-title" style="margin: 0">{{ p.project.name }}</div>
+                    <span class="badge badge-{{ p.project.status }}">{{ p.project.status }}</span>
+                </div>
+
+                {% if p.project.description %}
+                <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 0.6rem">
+                    {{ p.project.description }}
+                </p>
+                {% endif %}
+
+                <div class="card-meta">
+                    {% if p.project.building %}<span>🏗 {{ p.project.building.name }}</span>{% endif
+                    %} {% if p.project.start_date %}<span>Start: {{ p.project.start_date }}</span>{%
+                    endif %} {% if p.project.estimated_end_date %}<span
+                        >Due: {{ p.project.estimated_end_date }}</span
+                    >{% endif %} {% if p.project.budget_total %}<span
+                        >Budget: {{ "%.0f"|format(p.project.budget_total) }} €</span
+                    >{% endif %} {% if p.spent is defined %}<span style="color: var(--accent)"
+                        >Spent: {{ "%.0f"|format(p.spent) }} €</span
+                    >{% endif %}
+                </div>
+
+                {% if p.project.budget_total and p.spent is defined and p.project.budget_total > 0
+                %}
+                <div class="progress-bar" style="margin-top: 0.6rem; max-width: 320px">
+                    <div
+                        class="progress-fill"
+                        style="width:{{ [p.spent / p.project.budget_total * 100, 100]|min }}%"
+                    ></div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div style="text-align: right; flex-shrink: 0">
+                {% if p.project.task_total is defined %}
+                <div
+                    style="
+                        font-family: &quot;Barlow Condensed&quot;, sans-serif;
+                        font-size: 1.6rem;
+                        font-weight: 700;
+                        line-height: 1;
+                    "
+                >
+                    {{ p.project.task_done }}/{{ p.project.task_total }}
+                </div>
+                <div
+                    style="
+                        font-size: 0.68rem;
+                        letter-spacing: 0.1em;
+                        text-transform: uppercase;
+                        color: var(--muted);
+                    "
+                >
+                    Tasks Done
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon">🏗️</div>
+    <p>No projects yet. Create your first one to get started.</p>
+    <a href="/projects/new" class="btn btn-primary" style="margin-top: 1.25rem">+ New Project</a>
+</div>
+{% endif %} {% endblock %}

@@ -1,0 +1,96 @@
+<div class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-title">{{ "Edit Item" if item else "New Inventory Item" }}</div>
+    <form method="post" action="{{ '/inventory/' + item.id|string + '/edit' if item else '/inventory/new' }}">
+
+      {% if not item %}
+      <div class="form-group">
+        <label>Project</label>
+        <select name="project_id" required>
+          <option value="">— Select a project —</option>
+          {% for p in projects %}
+          <option value="{{ p.id }}" {{ 'selected' if default_project_id == p.id }}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label>Name</label>
+        <input name="name" value="{{ item.name if item else '' }}" required autofocus>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Category</label>
+          <select name="category">
+            {% for c in ['material','tool','appliance','consumable'] %}
+            <option value="{{ c }}" {{ 'selected' if item and item.category == c or (not item and c == 'material') }}>{{ c.capitalize() }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select name="status">
+            {% for s in ['pending','ordered','delivered','installed'] %}
+            <option value="{{ s }}" {{ 'selected' if item and item.status == s or (not item and s == 'pending') }}>{{ s.capitalize() }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Quantity</label>
+          <input type="number" step="0.01" name="quantity" value="{{ item.quantity if item else 1 }}" min="0">
+        </div>
+        <div class="form-group">
+          <label>Unit</label>
+          <input name="unit" value="{{ item.unit if item else 'unit' }}" placeholder="unit, m², kg, L…">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Unit Price (€)</label>
+          <input type="number" step="0.01" name="unit_price" value="{{ item.unit_price if item and item.unit_price is not none else '' }}" min="0" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>Acquisition Date</label>
+          <input type="date" name="acquisition_date" value="{{ item.acquisition_date if item and item.acquisition_date else '' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Supplier</label>
+          <input name="supplier" value="{{ item.supplier if item else '' }}" placeholder="Supplier name">
+        </div>
+        <div class="form-group">
+          <label>Storage Location</label>
+          <input name="storage" value="{{ item.storage if item else '' }}" placeholder="e.g. Site shed, Garage B">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Linked Task</label>
+        <select name="linked_task_id">
+          <option value="">— None —</option>
+          {% for t in tasks %}
+          <option value="{{ t.id }}" {{ 'selected' if item and item.linked_task_id == t.id }}>{{ t.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea name="notes" placeholder="Optional notes…">{{ item.notes if item else '' }}</textarea>
+      </div>
+
+      <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.5rem">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">{{ "Save Changes" if item else "Add Item" }}</button>
+      </div>
+    </form>
+  </div>
+</div>

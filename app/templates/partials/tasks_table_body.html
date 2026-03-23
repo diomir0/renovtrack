@@ -1,0 +1,20 @@
+<tbody id="tasks-list">
+{% for t in tasks %}
+<tr>
+  <td>{{ t.title }}</td>
+  <td style="color:var(--muted)">—</td>
+  <td style="color:var(--muted)">{{ t.assigned_to or "—" }}</td>
+  <td style="color:var(--muted)">{{ t.due_date or "—" }}</td>
+  <td>
+    <span class="badge" style="background:#2a2a2a;color:var(--muted)">{{ t.priority }}</span>
+  </td>
+  <td><span class="badge badge-{{ t.status }}">{{ t.status }}</span></td>
+  <td>
+    <button class="btn btn-secondary btn-sm"
+      hx-get="/tasks/{{ t.id }}/edit"
+      hx-target="#modal-container"
+      hx-swap="innerHTML">Edit</button>
+  </td>
+</tr>
+{% endfor %}
+</tbody>

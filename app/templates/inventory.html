@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Inventory — RenovTrack{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Inventory</h1>
+  <div style="display:flex;gap:0.5rem;align-items:center">
+    <!-- Project filter -->
+    <select id="project-filter" onchange="applyFilter()" style="width:auto;padding:0.35rem 0.65rem;font-size:0.8rem">
+      <option value="">All projects</option>
+      {% for p in projects %}
+      <option value="{{ p.id }}" {% if selected_project_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-primary btn-sm"
+      hx-get="/inventory/new{% if selected_project_id %}?project_id={{ selected_project_id }}{% endif %}"
+      hx-target="#modal-container"
+      hx-swap="innerHTML">+ New Item</button>
+  </div>
+</div>
+
+<!-- Summary stats -->
+{% if items %}
+<div class="grid-3" style="margin-bottom:1.75rem">
+  <div class="stat-box">
+    <div class="stat-value">{{ items|length }}</div>
+    <div class="stat-label">Total Items</div>
+  </div>
+  <div class="stat-box blue">
+    <div class="stat-value">{{ items|selectattr('status','eq','pending')|list|length + items|selectattr('status','eq','ordered')|list|length }}</div>
+    <div class="stat-label">Awaiting Delivery</div>
+  </div>
+  <div class="stat-box green" style="--accent-line: var(--success)">
+    {% set total_val = namespace(v=0) %}
+    {% for i in items %}{% if i.unit_price %}{% set total_val.v = total_val.v + i.unit_price * i.quantity %}{% endif %}{% endfor %}
+    <div class="stat-value">{{ "%.0f"|format(total_val.v) }} €</div>
+    <div class="stat-label">Total Value</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Category tabs -->
+<div class="tabs" id="cat-tabs">
+  <a class="tab active" href="#" onclick="filterCat(event,'all')">All</a>
+  <a class="tab" href="#" onclick="filterCat(event,'material')">Materials</a>
+  <a class="tab" href="#" onclick="filterCat(event,'tool')">Tools</a>
+  <a class="tab" href="#" onclick="filterCat(event,'appliance')">Appliances</a>
+  <a class="tab" href="#" onclick="filterCat(event,'consumable')">Consumables</a>
+</div>
+
+{% if items %}
+<div style="overflow-x:auto">
+<table id="inventory-table">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Project</th>
+      <th>Linked Task</th>
+      <th>Category</th>
+      <th>Qty</th>
+      <th>Unit Price</th>
+      <th>Total</th>
+      <th>Supplier</th>
+      <th>Storage</th>
+      <th>Acquired</th>
+      <th>Status</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item in items %}
+  <tr data-cat="{{ item.category }}" data-project="{{ item.project_id }}">
+    <td>
+      <span style="font-weight:500">{{ item.name }}</span>
+      {% if item.notes %}
+      <div style="font-size:0.73rem;color:var(--muted);margin-top:0.15rem">{{ item.notes }}</div>
+      {% endif %}
+    </td>
+    <td style="color:var(--muted)">
+      {% if item.project %}<a href="/projects/{{ item.project_id }}" style="color:var(--muted);text-decoration:none;hover:color:var(--text)">{{ item.project.name }}</a>{% else %}—{% endif %}
+    </td>
+    <td style="color:var(--muted)">
+      {% if item.linked_task %}{{ item.linked_task.title }}{% else %}—{% endif %}
+    </td>
+    <td style="color:var(--muted)">{{ item.category }}</td>
+    <td>{{ item.quantity }} <span style="color:var(--muted);font-size:0.78rem">{{ item.unit }}</span></td>
+    <td>
+      {% if item.unit_price is not none %}
+      {{ "%.2f"|format(item.unit_price) }} €
+      {% else %}—{% endif %}
+    </td>
+    <td style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;color:var(--accent)">
+      {% if item.unit_price is not none %}
+      {{ "%.2f"|format(item.unit_price * item.quantity) }} €
+      {% else %}—{% endif %}
+    </td>
+    <td style="color:var(--muted)">{{ item.supplier or "—" }}</td>
+    <td style="color:var(--muted)">{{ item.storage or "—" }}</td>
+    <td style="color:var(--muted);white-space:nowrap">{{ item.acquisition_date or "—" }}</td>
+    <td><span class="badge badge-{{ item.status }}">{{ item.status }}</span></td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-secondary btn-sm"
+        hx-get="/inventory/{{ item.id }}/edit"
+        hx-target="#modal-container"
+        hx-swap="innerHTML">Edit</button>
+      <button class="btn btn-danger btn-sm"
+        hx-delete="/inventory/{{ item.id }}"
+        hx-confirm="Delete {{ item.name }}?"
+        hx-target="closest tr"
+        hx-swap="outerHTML"
+        style="margin-left:0.25rem">✕</button>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📦</div>
+  <p>No inventory items yet.</p>
+  <button class="btn btn-primary"
+    style="margin-top:1.25rem"
+    hx-get="/inventory/new"
+    hx-target="#modal-container"
+    hx-swap="innerHTML">+ Add First Item</button>
+</div>
+{% endif %}
+
+<script>
+function applyFilter() {
+  const pid = document.getElementById('project-filter').value;
+  const url = new URL(window.location.href);
+  if (pid) url.searchParams.set('project_id', pid);
+  else url.searchParams.delete('project_id');
+  window.location.href = url.toString();
+}
+
+function filterCat(e, cat) {
+  e.preventDefault();
+  document.querySelectorAll('.tab').forEach(t =>
+    t.classList.toggle('active', t.textContent.trim().toLowerCase() === (cat === 'all' ? 'all' : cat + 's') || (cat === 'all' && t.textContent.trim() === 'All'))
+  );
+  document.querySelectorAll('#inventory-table tbody tr').forEach(row => {
+    row.style.display = (cat === 'all' || row.dataset.cat === cat) ? '' : 'none';
+  });
+}
+</script>
+
+{% endblock %}

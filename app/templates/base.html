@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}RenovTrack{% endblock %}</title>
+
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:        #0f0f0f;
+      --surface:   #1a1a1a;
+      --border:    #2e2e2e;
+      --text:      #e8e4dc;
+      --muted:     #6b6660;
+      --accent:    #e8a020;
+      --accent2:   #3a7bd5;
+      --danger:    #c0392b;
+      --success:   #27ae60;
+      --warn:      #e67e22;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      font-size: 15px;
+    }
+
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.4;
+    }
+
+    /* ── Top nav ── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 52px;
+      position: sticky; top: 0; z-index: 100;
+    }
+
+    .nav-brand {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 1.35rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .nav-brand span { color: var(--text); }
+
+    .nav-links { display: flex; gap: 0.25rem; }
+
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.4rem 0.75rem;
+      border-radius: 3px;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--text);
+      background: var(--border);
+    }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .page-header h1 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* ── Cards / panels ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      transition: border-color 0.15s;
+    }
+
+    .card:hover { border-color: #444; }
+
+    .card-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-meta {
+      font-size: 0.78rem;
+      color: var(--muted);
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    /* ── Grid ── */
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+
+    /* ── Stat boxes ── */
+    .stat-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .stat-box.blue::before  { background: var(--accent2); }
+    .stat-box.green::before { background: var(--success); }
+    .stat-box.red::before   { background: var(--danger); }
+
+    .stat-value {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--text);
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 0.35rem;
+    }
+
+    /* ── Badges / status ── */
+    .badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.55rem;
+      border-radius: 2px;
+    }
+
+    .badge-todo       { background: #2a2a2a; color: var(--muted); }
+    .badge-in_progress{ background: #1a2f4a; color: #5b9bd5; }
+    .badge-blocked    { background: #3a1a1a; color: #e07070; }
+    .badge-done       { background: #1a3a2a; color: #60c080; }
+    .badge-planning   { background: #2a2a2a; color: var(--muted); }
+    .badge-active     { background: #1a3a2a; color: #60c080; }
+    .badge-on_hold    { background: #3a3020; color: #c0a050; }
+    .badge-pending    { background: #2a2a2a; color: var(--muted); }
+    .badge-ordered    { background: #1a2a3a; color: #5090c0; }
+    .badge-delivered  { background: #2a3a1a; color: #80c060; }
+    .badge-installed  { background: #1a3a2a; color: #60c080; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 600;
+      font-size: 0.82rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.5rem 1rem;
+      border-radius: 3px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .btn-primary  { background: var(--accent); color: #0f0f0f; }
+    .btn-primary:hover { background: #f0b030; }
+    .btn-secondary{ background: var(--border); color: var(--text); }
+    .btn-secondary:hover { background: #3a3a3a; }
+    .btn-danger   { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+    .btn-danger:hover { background: var(--danger); color: white; }
+    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.75rem; }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 1rem; }
+
+    label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.55rem 0.75rem;
+      border-radius: 3px;
+      font-family: 'Barlow', sans-serif;
+      font-size: 0.9rem;
+      transition: border-color 0.15s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    textarea { min-height: 90px; resize: vertical; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(2px);
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      width: 100%; max-width: 520px;
+      padding: 1.75rem;
+      position: relative;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      font-size: 0.7rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.7rem 0.75rem;
+      border-bottom: 1px solid #1e1e1e;
+      font-size: 0.88rem;
+      vertical-align: middle;
+    }
+    tr:hover td { background: #1e1e1e; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+    .tab {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.85rem; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 0.65rem 1.2rem;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+      text-decoration: none;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── Log entry ── */
+    .log-entry {
+      border-left: 2px solid var(--accent);
+      padding-left: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .log-date {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.3rem;
+    }
+
+    .log-summary { font-size: 0.9rem; margin-bottom: 0.4rem; }
+
+    .log-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .log-chip {
+      font-size: 0.7rem; font-weight: 500;
+      background: var(--border);
+      color: var(--muted);
+      padding: 0.15rem 0.5rem;
+      border-radius: 2px;
+    }
+
+    /* ── Progress bar ── */
+    .progress-bar {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+
+    /* ── HTMX loading indicator ── */
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .empty-state p { font-size: 0.85rem; letter-spacing: 0.05em; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .form-row { grid-template-columns: 1fr; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .page-header { flex-direction: column; gap: 0.75rem; }
+      nav { padding: 0 1rem; }
+      .nav-links a { padding: 0.4rem 0.5rem; font-size: 0.72rem; }
+      .container { padding: 1.25rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="nav-brand">Renov<span>Track</span></a>
+  <div class="nav-links">
+    <a href="/"          class="{% if request.url.path == '/' %}active{% endif %}">Dashboard</a>
+    <a href="/projects"  class="{% if '/projects' in request.url.path %}active{% endif %}">Projects</a>
+    <a href="/inventory" class="{% if '/inventory' in request.url.path %}active{% endif %}">Inventory</a>
+    <a href="/calendar"  class="{% if '/calendar' in request.url.path %}active{% endif %}">Calendar</a>
+    <a href="/logs"      class="{% if request.url.path == '/logs' or request.url.path.startswith('/logs/') %}active{% endif %}">Logs</a>
+  </div>
+</nav>
+
+<div class="container">
+  {% block content %}{% endblock %}
+</div>
+
+<!-- Global modal container (filled by HTMX) -->
+<div id="modal-container"></div>
+
+<script>
+  // Close modal on backdrop click
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-backdrop')) {
+      document.getElementById('modal-container').innerHTML = '';
+    }
+  });
+
+  // Close modal on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('modal-container').innerHTML = '';
+    }
+  });
+
+  function closeModal() {
+    document.getElementById('modal-container').innerHTML = '';
+  }
+</script>
+
+</body>
+</html>
