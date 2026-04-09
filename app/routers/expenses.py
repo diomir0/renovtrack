@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import func, select
+
 from app.database import get_session
 from app.models import Expense, ExpenseCreate, ExpenseRead
 
@@ -38,7 +39,9 @@ async def expense_summary(
 
 
 @router.post("/", response_model=ExpenseRead)
-async def create_expense(expense: ExpenseCreate, session: AsyncSession = Depends(get_session)):
+async def create_expense(
+    expense: ExpenseCreate, session: AsyncSession = Depends(get_session)
+):
     db_expense = Expense.from_orm(expense)
     session.add(db_expense)
     await session.commit()
@@ -51,6 +54,23 @@ async def get_expense(expense_id: int, session: AsyncSession = Depends(get_sessi
     expense = await session.get(Expense, expense_id)
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
+    return expense
+
+
+@router.patch("/{expense_id}", response_model=ExpenseRead)
+async def update_expense(
+    expense_id: int,
+    updates: ExpenseCreate,
+    session: AsyncSession = Depends(get_session),
+):
+    expense = await session.get(Expense, expense_id)
+    if not expense:
+        raise HTTPException(status_code=404, detail="Task not found")
+    for key, value in updates.dict(exclude_unset=True).items():
+        setattr(expense, key, value)
+    session.add(expense)
+    await session.commit()
+    await session.refresh(expense)
     return expense
 
 

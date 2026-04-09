@@ -51,7 +51,7 @@ async def update_item(
     item = await session.get(InventoryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    for key, value in updates.dict(exclude_unset=True).items():
+    for key, value in updates.model_dump(exclude_unset=True).items():
         setattr(item, key, value)
     session.add(item)
     await session.commit()

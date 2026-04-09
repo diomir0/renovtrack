@@ -4,7 +4,10 @@
 {% block content %}
 <div class="page-header">
   <h1>Daily Logs</h1>
-  <a href="/logs/new" class="btn btn-primary">+ New Daily Log</a>
+  <button class="btn btn-primary btn-sm"
+    hx-get="/logs/new{% if selected_project_id %}?project_id={{ selected_project_id }}{% endif %}"
+    hx-target="#modal-container"
+    hx-swap="innerHTML">+ New Log</button>
 </div>
 
 <!-- Filters -->
@@ -76,12 +79,19 @@
           </div>
           <div style="display:flex;align-items:center;gap:0.5rem">
             <span style="font-size:0.78rem;color:var(--muted)">by {{ log.author }}</span>
-            <a href="/logs/{{ log.id }}/edit" class="btn btn-secondary btn-sm">Edit</a>
+            <button class="btn btn-secondary btn-sm"
+              hx-get="/logs/{{ log.id }}/edit"
+              hx-target="#modal-container"
+              hx-swap="innerHTML">
+                  Edit
+            </button>
             <button class="btn btn-danger btn-sm"
               hx-delete="/logs/{{ log.id }}"
               hx-confirm="Delete this log entry?"
               hx-target="closest .card"
-              hx-swap="outerHTML">✕</button>
+              hx-swap="outerHTML">
+                  ✕
+              </button>
           </div>
         </div>
 
@@ -101,11 +111,11 @@
           </span>
 
           <!-- People -->
-          {% for person in log.people_list %}
+          {% if log.people_involved %} {% for person in log.people_involved %}
           <span style="font-size:0.75rem;background:var(--border);color:var(--muted);padding:0.2rem 0.55rem;border-radius:2px">
             👤 {{ person }}
           </span>
-          {% endfor %}
+          {% endfor %}{% endif %}
 
           <!-- Tasks completed -->
           {% for task in log.tasks_done %}
@@ -134,8 +144,11 @@
 <div class="empty-state">
   <div class="empty-icon">📅</div>
   <p>No logs yet{% if selected_project_id or selected_building_id %} for this filter{% endif %}. Start by creating one.</p>
-  <a href="/logs/new{% if selected_project_id %}?project_id={{ selected_project_id }}{% endif %}"
-     class="btn btn-primary" style="margin-top:1.25rem">+ New Log</a>
+  <button class="btn btn-primary btn-sm"
+    style="margin-top:1.25rem"
+    hx-get="/logs/new{% if selected_project_id %}?project_id={{ selected_project_id }}{% endif %}"
+    hx-target="#modal-container"
+    hx-swap="innerHTML">+ New Log</button>
 </div>
 {% endif %}
 

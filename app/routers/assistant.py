@@ -1,12 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
-from app.database import get_session
-from app.models import Project, Task, Expense, DailyLog, InventoryItem
-from app.config import settings
-import httpx
 import json
+
+import httpx
+from azure.identity import DeviceCodeCredential
+from fastapi import APIRouter, Depends, HTTPException
+from kiota_abstractions.api_error import APIError
+from microsoft_agents_m365copilot.agents_m365_copilot_service_client import (
+    AgentsM365CopilotServiceClient,
+)
+from microsoft_agents_m365copilot.generated.copilot.retrieval.retrieval_post_request_body import (
+    RetrievalPostRequestBody,
+)
+from microsoft_agents_m365copilot.generated.models.retrieval_data_source import (
+    RetrievalDataSource,
+)
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import func, select
+
+from app.config import settings
+from app.database import get_session
+from app.models import DailyLog, Expense, InventoryItem, Project, Task
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
@@ -23,7 +36,9 @@ async def build_context(project_id: int | None, session: AsyncSession) -> str:
     if project_id:
         project = await session.get(Project, project_id)
         if project:
-            lines.append(f"Project: {project.name} | Status: {project.status} | Budget: {project.budget_total}€")
+            lines.append(
+                f"Project: {project.name} | Status: {project.status} | Budget: {project.budget_total}€"
+            )
 
         # Task summary
         result = await session.execute(
@@ -36,8 +51,9 @@ async def build_context(project_id: int | None, session: AsyncSession) -> str:
 
         # Expense summary
         result = await session.execute(
-            select(func.sum(Expense.amount).label("total"))
-            .where(Expense.project_id == project_id)
+            select(func.sum(Expense.amount).label("total")).where(
+                Expense.project_id == project_id
+            )
         )
         total = result.scalar() or 0
         lines.append(f"Total spent: {total}€")
@@ -55,8 +71,10 @@ async def build_context(project_id: int | None, session: AsyncSession) -> str:
 
         # Inventory pending
         result = await session.execute(
-            select(InventoryItem)
-            .where(InventoryItem.project_id == project_id, InventoryItem.status == "pending")
+            select(InventoryItem).where(
+                InventoryItem.project_id == project_id,
+                InventoryItem.status == "pending",
+            )
         )
         pending = result.scalars().all()
         if pending:
@@ -71,7 +89,9 @@ async def build_context(project_id: int | None, session: AsyncSession) -> str:
 
 
 @router.post("/")
-async def ask_assistant(query: AssistantQuery, session: AsyncSession = Depends(get_session)):
+async def ask_assistant(
+    query: AssistantQuery, session: AsyncSession = Depends(get_session)
+):
     context = await build_context(query.project_id, session)
 
     system_prompt = (
@@ -101,5 +121,5 @@ async def ask_assistant(query: AssistantQuery, session: AsyncSession = Depends(g
     except httpx.ConnectError:
         raise HTTPException(
             status_code=503,
-            detail="Could not connect to local LLM. Make sure Ollama is running.",
+            detail="Could not connect to the LLM. Make sure you have acces to the internet and the API key is valid.",
         )

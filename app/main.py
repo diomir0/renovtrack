@@ -1,11 +1,12 @@
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-from app.database import init_db
-from app.routers import projects, tasks, expenses, inventory, logs, assistant
-from app.routers import pages
 import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.database import init_db
+from app.routers import assistant, expenses, inventory, logs, pages, projects, tasks
 
 
 @asynccontextmanager
@@ -29,6 +30,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Static
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Pages (HTML)
 app.include_router(pages.router)

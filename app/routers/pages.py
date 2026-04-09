@@ -1,6 +1,7 @@
 import json
 import json as _json
 from datetime import date, timedelta
+from syslog import LOG_PID
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Query, Request
@@ -911,7 +912,7 @@ async def inventory_delete(item_id: int, session: AsyncSession = Depends(get_ses
 async def logs_page(
     request: Request,
     building_id: Optional[int] = Query(default=None),
-    project_id: Optional[int] = Query(default=None),
+    project_id: Optional[int] = Query(default=1),
     session: AsyncSession = Depends(get_session),
 ):
     # Fetch all buildings and projects for filter dropdowns
@@ -1003,9 +1004,9 @@ async def logs_page(
         log.people_involved = (
             _json.loads(log.people_involved) if log.people_involved else []
         )
-        # log.tasks_completed = tasks_by_log.get(log.id, [])
-        # log.expenses_logged = expenses_by_log.get(log.id, [])
-        # log.zone_name = zone_map.get(log.zone_id) if log.zone_id else None
+    # log.tasks_completed = tasks_by_log.get(log.id, [])
+    # log.expenses_logged = expenses_by_log.get(log.id, [])
+    # log.zone_name = zone_map.get(log.zone_id) if log.zone_id else None
 
     # Group by project, preserving project order
     grouped_logs = {}
@@ -1014,8 +1015,6 @@ async def logs_page(
         if p.id not in grouped_logs.keys():
             grouped_logs[p.id] = []
         grouped_logs[p.id].append(log)
-
-    print(grouped_logs)
 
     total_logs = len(raw_logs)
     total_hours = sum(l.time_spent_hours for l in raw_logs)
@@ -1033,6 +1032,60 @@ async def logs_page(
             "total_hours": total_hours,
         },
     )
+
+
+@router.get("/logs/{log_id}/edit")
+async def log_edit_modal(
+    log_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    log = await session.get(DailyLog, log_id)
+    project_id = log.project_id if log else None
+
+    projects_r = await session.execute(select(Project))
+    projects = projects_r.scalars().all()
+
+    tasks_r = await session.execute(select(Task))
+    tasks = tasks_r.scalars().all()
+
+    return templates.TemplateResponse(
+        "partials/log_modal.html",
+        {
+            "request": request,
+            "log": log,
+            "projects": projects,
+            "tasks": tasks,
+            "project_id": project_id,
+            "default_project_id": None,
+        },
+    )
+
+
+@router.post("/logs/{log_id}/edit")
+async def log_update(
+    log_id: int,
+    # project_id: int = Form(...),
+    date_val: date = Form(..., alias="date"),
+    author: str = Form(...),
+    summary: Optional[str] = Form(""),
+    time_spent_hours: float = Form(...),
+    zone_id: Optional[int] = Form(None),
+    people: str = Form(""),
+    session: AsyncSession = Depends(get_session),
+):
+    log = await session.get(DailyLog, log_id)
+    if log:
+        # log.project_id = project_id
+        log.date = date_val
+        log.author = author
+        log.summary = summary
+        log.time_spent_hours = time_spent_hours
+        log.zone_id = zone_id
+        log.people_involved = people
+        session.add(log)
+        await session.commit()
+    return RedirectResponse("/logs", status_code=303)
 
 
 @router.delete("/logs/{log_id}")

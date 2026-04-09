@@ -49,6 +49,20 @@ async def get_log(log_id: int, session: AsyncSession = Depends(get_session)):
     return log
 
 
+@router.patch("/{log_id}", response_model=DailyLogRead)
+async def update_log(
+    log_id: int, updates: DailyLogCreate, session: AsyncSession = Depends(get_session)
+):
+    log = await session.get(DailyLog, log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="Log not found")
+    for key, value in updates.model_dump(exclude_unset=True).items():
+        setattr(log, key, value)
+    await session.commit()
+    await session.refresh(log)
+    return log
+
+
 @router.delete("/{log_id}")
 async def delete_log(log_id: int, session: AsyncSession = Depends(get_session)):
     log = await session.get(DailyLog, log_id)

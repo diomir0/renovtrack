@@ -223,6 +223,26 @@ content %}
                 >
                     {{ "%.2f"|format(e.amount) }} €
                 </td>
+                <td>
+                    <button
+                        class="btn btn-secondary btn-sm"
+                        hx-get="/expenses/{{ e.id }}"
+                        hx-target="#modal-container"
+                        hx-swap="innerHTML"
+                    >
+                        Edit
+                    </button>
+                    <button
+                        class="btn btn-danger btn-sm"
+                        hx-delete="/expenses/{{ e.id }}"
+                        hx-confirm="Delete {{ e.label }}?"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML"
+                        style="margin-left: 0.25rem"
+                    >
+                        ✕
+                    </button>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
