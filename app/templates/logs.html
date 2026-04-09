@@ -4,8 +4,7 @@
 {% block content %}
 <div class="page-header">
   <h1>Daily Logs</h1>
-  <a href="/logs/new{% if selected_project_id %}?project_id={{ selected_project_id }}{% endif %}"
-     class="btn btn-primary">+ New Log</a>
+  <a href="/logs/new" class="btn btn-primary">+ New Daily Log</a>
 </div>
 
 <!-- Filters -->
@@ -37,8 +36,9 @@
 
 <!-- Logs grouped by project -->
 {% if grouped_logs %}
-  {% for project, logs in grouped_logs.items() %}
+  {% for id, logs in grouped_logs.items() %}
   <div style="margin-bottom:2.5rem">
+    {% set project = projects[id-1] %}
 
     <!-- Project header -->
     <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;padding-bottom:0.6rem;border-bottom:1px solid var(--border)">

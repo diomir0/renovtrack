@@ -1,12 +1,20 @@
+import json
+from telnetlib import AUTHENTICATION
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
 from app.database import get_session
 from app.models import (
-    DailyLog, DailyLogCreate, DailyLogRead,
-    Task, Expense, DailyLogTaskLink, DailyLogExpenseLink,
+    DailyLog,
+    DailyLogCreate,
+    DailyLogExpenseLink,
+    DailyLogRead,
+    DailyLogTaskLink,
+    Expense,
+    Task,
 )
-import json
 
 router = APIRouter(prefix="/logs", tags=["daily-logs"])
 
@@ -26,35 +34,8 @@ async def list_logs(
 
 @router.post("/", response_model=DailyLogRead)
 async def create_log(log: DailyLogCreate, session: AsyncSession = Depends(get_session)):
-    db_log = DailyLog(
-        project_id=log.project_id,
-        zone_id=log.zone_id,
-        date=log.date,
-        author=log.author,
-        summary=log.summary,
-        time_spent_hours=log.time_spent_hours,
-        people_involved=json.dumps(log.people),
-    )
+    db_log = DailyLog.model_validate(log)
     session.add(db_log)
-    await session.flush()  # get id before adding links
-
-    # Link tasks
-    for task_id in log.task_ids:
-        task = await session.get(Task, task_id)
-        if task:
-            link = DailyLogTaskLink(log_id=db_log.id, task_id=task_id)
-            session.add(link)
-            # Mark task as done
-            task.status = "done"
-            session.add(task)
-
-    # Link expenses
-    for expense_id in log.expense_ids:
-        expense = await session.get(Expense, expense_id)
-        if expense:
-            link = DailyLogExpenseLink(log_id=db_log.id, expense_id=expense_id)
-            session.add(link)
-
     await session.commit()
     await session.refresh(db_log)
     return db_log

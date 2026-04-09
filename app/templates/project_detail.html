@@ -238,9 +238,14 @@ content %}
 <!-- Logs tab -->
 <div id="tab-logs" style="display: none">
     <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem">
-        <a href="/logs/new?project_id={{ project.id }}" class="btn btn-primary btn-sm"
-            >+ Daily Log</a
+        <button
+            class="btn btn-primary btn-sm"
+            hx-get="/logs/new?project_id={{ project.id }}"
+            hx-target="#modal-container"
+            hx-swap="innerHTML"
         >
+            + Daily Log
+        </button>
     </div>
     {% if logs %} {% for log in logs %}
     <div class="log-entry">

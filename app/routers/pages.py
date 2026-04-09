@@ -49,15 +49,14 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
             )
         )
 
-    # Compute spent per project
     for p in enriched:
-        result = await session.execute(
+        spent_r = await session.execute(
             select(func.sum(Expense.amount)).where(Expense.project_id == p.project.id)
         )
-        p.spent = result.scalar() or 0
+        p.spent = spent_r.scalar() or 0.0
 
     # Stats
-    active = sum(1 for p in enriched if p.project.status == "active")
+    active = sum(1 for p in raw_projects if p.status == "active")
 
     tasks_result = await session.execute(
         select(func.count(Task.id)).where(Task.status != "done")
@@ -296,81 +295,6 @@ async def project_update_modal(
     return RedirectResponse(f"/projects/{project_id}")
 
 
-# ── New daily log page ────────────────────────────────────────────────────────
-
-
-@router.get("/logs/new")
-async def new_log_page(
-    project_id: int, request: Request, session: AsyncSession = Depends(get_session)
-):
-    project = await session.get(Project, project_id)
-    if not project:
-        return RedirectResponse("/")
-
-    zones_r = await session.execute(select(Zone).where(Zone.project_id == project_id))
-    zones = zones_r.scalars().all()
-
-    tasks_r = await session.execute(
-        select(Task).where(Task.project_id == project_id, Task.status != "done")
-    )
-    tasks = tasks_r.scalars().all()
-
-    return templates.TemplateResponse(
-        "log_new.html",
-        {
-            "request": request,
-            "project": project,
-            "zones": zones,
-            "tasks": tasks,
-            "pending_expenses": [],
-            "today": date.today().isoformat(),
-        },
-    )
-
-
-@router.post("/logs")
-async def create_log_form(
-    request: Request,
-    project_id: int = Form(...),
-    date_val: date = Form(..., alias="date"),
-    author: str = Form(...),
-    summary: str = Form(""),
-    time_spent_hours: float = Form(0),
-    zone_id: Optional[int] = Form(None),
-    people: str = Form(""),
-    session: AsyncSession = Depends(get_session),
-):
-    form_data = await request.form()
-    task_ids = [int(v) for v in form_data.getlist("task_ids")]
-    expense_ids = [int(v) for v in form_data.getlist("expense_ids")]
-    people_list = [p.strip() for p in people.split(",") if p.strip()]
-
-    db_log = DailyLog(
-        project_id=project_id,
-        zone_id=zone_id,
-        date=date_val,
-        author=author,
-        summary=summary,
-        time_spent_hours=time_spent_hours,
-        people_involved=json.dumps(people_list),
-    )
-    session.add(db_log)
-    await session.flush()
-
-    for task_id in task_ids:
-        task = await session.get(Task, task_id)
-        if task:
-            task.status = "done"
-            session.add(task)
-            session.add(DailyLogTaskLink(log_id=db_log.id, task_id=task_id))
-
-    for expense_id in expense_ids:
-        session.add(DailyLogExpenseLink(log_id=db_log.id, expense_id=expense_id))
-
-    await session.commit()
-    return RedirectResponse(f"/projects/{project_id}", status_code=303)
-
-
 # ── HTMX modal partials ───────────────────────────────────────────────────────
 
 
@@ -509,13 +433,21 @@ async def create_expense_form(
 async def inventory_modal(
     project_id: int, request: Request, session: AsyncSession = Depends(get_session)
 ):
+    projects_r = await session.execute(select(Project).where(Project.id == project_id))
+    projects = projects_r.scalars().all()
+
+    tasks_r = await session.execute(select(Task).where(Task.project_id == project_id))
+    tasks = tasks_r.scalars().all()
+
     zones_r = await session.execute(select(Zone).where(Zone.project_id == project_id))
     zones = zones_r.scalars().all()
     return templates.TemplateResponse(
         "partials/inventory_modal.html",
         {
             "request": request,
-            "project_id": project_id,
+            "projects": projects,
+            "default_project_id": project_id,
+            "tasks": tasks,
             "zones": zones,
             "item": None,
         },
@@ -544,7 +476,102 @@ async def create_inventory_form(
         supplier=supplier or None,
         zone_id=zone_id or None,
     )
+
+    exp_category = None
+    if category == "tool":
+        exp_category = "equipment"
+    elif category == "material":
+        exp_category = "material"
+    else:
+        exp_category = "other"
+
+    exp_date = item.created_at if item.created_at else date.today()
+
+    expense = Expense(
+        label=name,
+        amount=quantity,
+        category=exp_category,
+        date=exp_date,
+        project_id=project_id,
+    )
+
     session.add(item)
+    session.add(expense)
+    await session.commit()
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+@router.get("/logs/new")
+async def log_modal(
+    project_id: int, request: Request, session: AsyncSession = Depends(get_session)
+):
+    projects_r = await session.execute(select(Project))
+    # .where(Project.id == project_id)
+    projects = projects_r.scalars().all()
+
+    zones_r = await session.execute(select(Zone).where(Zone.project_id == project_id))
+    zones = zones_r.scalars().all()
+
+    tasks_r = await session.execute(
+        select(Task).where(Task.project_id == project_id, Task.status != "done")
+    )
+    tasks = tasks_r.scalars().all()
+
+    return templates.TemplateResponse(
+        "partials/log_modal.html",
+        {
+            "request": request,
+            "projects": projects,
+            "project": project_id,
+            "default_project_id": project_id,
+            "zones": zones,
+            "tasks": tasks,
+            "pending_expenses": [],
+            "today": date.today().isoformat(),
+        },
+    )
+
+
+@router.post("/logs/new")
+async def create_log_form(
+    request: Request,
+    project_id: int = Form(...),
+    date_val: date = Form(..., alias="date"),
+    author: str = Form(...),
+    summary: Optional[str] = Form(""),
+    time_spent_hours: float = Form(...),
+    zone_id: Optional[int] = Form(None),
+    people: str = Form(""),
+    session: AsyncSession = Depends(get_session),
+):
+    form_data = await request.form()
+    task_ids = [int(v) for v in form_data.getlist("task_ids")]
+    expense_ids = [int(v) for v in form_data.getlist("expense_ids")]
+    people_list = [p.strip() for p in people.split(",") if p.strip()]
+
+    log = DailyLog(
+        project_id=project_id,
+        zone_id=zone_id,
+        date=date_val,
+        author=author,
+        summary=summary,
+        time_spent_hours=time_spent_hours,
+        people_involved=json.dumps(people_list),
+    )
+
+    session.add(log)
+    await session.flush()
+
+    for task_id in task_ids:
+        task = await session.get(Task, task_id)
+        if task:
+            task.status = "done"
+            session.add(task)
+            session.add(DailyLogTaskLink(log_id=log.id, task_id=task_id))
+
+    for expense_id in expense_ids:
+        session.add(DailyLogExpenseLink(log_id=log.id, expense_id=expense_id))
+
     await session.commit()
     return RedirectResponse(f"/projects/{project_id}", status_code=303)
 
@@ -762,7 +789,7 @@ async def inventory_create(
     status: str = Form("pending"),
     quantity: float = Form(1),
     unit: str = Form("unit"),
-    unit_price: Optional[float] = Form(None),
+    unit_price: float = Form(0),
     acquisition_date: Optional[str] = Form(None),
     supplier: str = Form(""),
     storage: str = Form(""),
@@ -786,7 +813,27 @@ async def inventory_create(
         linked_task_id=linked_task_id or None,
         notes=notes or None,
     )
+
+    exp_category = None
+    if category == "tool":
+        exp_category = "equipment"
+    elif category == "material":
+        exp_category = "material"
+    else:
+        exp_category = "other"
+
+    exp_date = item.created_at if item.created_at else date.today()
+
+    expense = Expense(
+        label=name,
+        amount=item.quantity * item.unit_price,
+        category=exp_category,
+        date=exp_date,
+        project_id=project_id,
+    )
+
     session.add(item)
+    session.add(expense)
     await session.commit()
     return RedirectResponse("/inventory", status_code=303)
 
@@ -953,20 +1000,22 @@ async def logs_page(
 
     # Enrich logs
     for log in raw_logs:
-        log.people_list = (
+        log.people_involved = (
             _json.loads(log.people_involved) if log.people_involved else []
         )
-        log.tasks_done = tasks_by_log.get(log.id, [])
-        log.expenses_list = expenses_by_log.get(log.id, [])
-        log.zone_name = zone_map.get(log.zone_id) if log.zone_id else None
+        # log.tasks_completed = tasks_by_log.get(log.id, [])
+        # log.expenses_logged = expenses_by_log.get(log.id, [])
+        # log.zone_name = zone_map.get(log.zone_id) if log.zone_id else None
 
     # Group by project, preserving project order
     grouped_logs = {}
     for log in raw_logs:
         p = project_map.get(log.project_id)
-        if p not in grouped_logs:
-            grouped_logs[p] = []
-        grouped_logs[p].append(log)
+        if p.id not in grouped_logs.keys():
+            grouped_logs[p.id] = []
+        grouped_logs[p.id].append(log)
+
+    print(grouped_logs)
 
     total_logs = len(raw_logs)
     total_hours = sum(l.time_spent_hours for l in raw_logs)

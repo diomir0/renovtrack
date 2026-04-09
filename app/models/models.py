@@ -170,9 +170,10 @@ class InventoryItemBase(SQLModel):
     category: str = "material"  # material | tool | appliance | consumable
     quantity: float = 0.0
     unit: str = "unit"
+    unit_price: float = 0.0
     status: str = "pending"  # pending | ordered | delivered | installed
     supplier: Optional[str] = None
-    unit_price: Optional[float] = None
+    # unit_price: Optional[float] = None
     acquisition_date: Optional[date] = None
     storage: Optional[str] = None
     notes: Optional[str] = None
@@ -261,7 +262,7 @@ class WorkerBase(SQLModel):
 
 class Worker(WorkerBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
 
 
 class WorkerCreate(WorkerBase):
@@ -278,17 +279,17 @@ class WorkerRead(WorkerBase):
 class DailyLogBase(SQLModel):
     date: date
     author: str
-    summary: Optional[str] = None
-    time_spent_hours: float = 0.0
+    time_spent_hours: float
+    summary: Optional[str] = ""
     # Stored as JSON string: ["Alice", "Bob"] for flexibility
-    people_involved: Optional[str] = None
+    people_involved: Optional[str] = ""
 
 
 class DailyLog(DailyLogBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="project.id")
     zone_id: Optional[int] = Field(default=None, foreign_key="zone.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
 
     project: Optional[Project] = Relationship(back_populates="daily_logs")
     tasks_completed: List[Task] = Relationship(
@@ -310,9 +311,9 @@ class DailyLog(DailyLogBase, table=True):
 class DailyLogCreate(DailyLogBase):
     project_id: int
     zone_id: Optional[int] = None
-    task_ids: List[int] = []
-    expense_ids: List[int] = []
-    people: List[str] = []
+    task_ids: List[int] = Field(default_factory=list)
+    expense_ids: List[int] = Field(default_factory=list)
+    people: List[str] = Field(default_factory=list)
 
 
 class DailyLogRead(DailyLogBase):

@@ -24,7 +24,7 @@
 {% if enriched %}
 <div class="grid-2">
     {% for p in enriched %}
-    <a href="/projects/{{ p.id }}" style="text-decoration: none; color: inherit">
+    <a href="/projects/{{ p.project.id }}" style="text-decoration: none; color: inherit">
         <div class="card">
             <div
                 style="
@@ -35,7 +35,7 @@
                 "
             >
                 <div class="card-title">{{ p.project.name }}</div>
-                <span class="badge badge-{{ p.project.status }}">{{ p.project.status }}</span>
+                <span class="badge badge-{{ p.status }}">{{ p.project.status }}</span>
             </div>
             {% if p.project.description %}
             <p style="font-size: 0.83rem; color: var(--muted); margin-bottom: 0.75rem">
@@ -49,7 +49,7 @@
                 <span>Due: {{ p.project.estimated_end_date }}</span>
                 {% endif %}
             </div>
-            {% if p.project.budget_total and p.spent %}
+            {% if p.project.budget_total and p.project.expenses %}
             <div class="progress-bar">
                 <div
                     class="progress-fill"

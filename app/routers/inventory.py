@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
 from app.database import get_session
 from app.models import InventoryItem, InventoryItemCreate, InventoryItemRead
 
@@ -23,8 +24,10 @@ async def list_items(
 
 
 @router.post("/", response_model=InventoryItemRead)
-async def create_item(item: InventoryItemCreate, session: AsyncSession = Depends(get_session)):
-    db_item = InventoryItem.from_orm(item)
+async def create_item(
+    item: InventoryItemCreate, session: AsyncSession = Depends(get_session)
+):
+    db_item = InventoryItem.model_validate(item)
     session.add(db_item)
     await session.commit()
     await session.refresh(db_item)
@@ -40,7 +43,11 @@ async def get_item(item_id: int, session: AsyncSession = Depends(get_session)):
 
 
 @router.patch("/{item_id}", response_model=InventoryItemRead)
-async def update_item(item_id: int, updates: InventoryItemCreate, session: AsyncSession = Depends(get_session)):
+async def update_item(
+    item_id: int,
+    updates: InventoryItemCreate,
+    session: AsyncSession = Depends(get_session),
+):
     item = await session.get(InventoryItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
