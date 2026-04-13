@@ -265,9 +265,16 @@ async def project_edit_modal(
     session: AsyncSession = Depends(get_session),
 ):
     project = await session.get(Project, project_id)
+    buildings_r = await session.execute(select(Building))
+    buildings = buildings_r.scalars().all()
     return templates.TemplateResponse(
         "partials/project_modal.html",
-        {"request": request, "project_id": project.id, "project": project},
+        {
+            "request": request,
+            "project_id": project.id,
+            "project": project,
+            "buildings": buildings,
+        },
     )
 
 
@@ -294,6 +301,15 @@ async def project_update_modal(
         project.estimated_end_date = estimated_end_date if estimated_end_date else None
         await session.commit()
     return RedirectResponse(f"/projects/{project_id}")
+
+
+@router.delete("/projects/{project_id}")
+async def project_delete(project_id: int, session: AsyncSession = Depends(get_session)):
+    project = await session.get(Project, project_id)
+    if project:
+        await session.delete(project)
+        await session.commit()
+    return RedirectResponse("/projects")
 
 
 # ── HTMX modal partials ───────────────────────────────────────────────────────
