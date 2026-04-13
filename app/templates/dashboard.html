@@ -21,9 +21,9 @@
 </div>
 
 <!-- Projects -->
-{% if enriched %}
+{% if projects %}
 <div class="grid-2">
-    {% for p in enriched %}
+    {% for p in projects %}
     <a href="/projects/{{ p.project.id }}" style="text-decoration: none; color: inherit">
         <div class="card">
             <div
@@ -162,7 +162,8 @@
             ></span>
             <span style="flex: 1; font-size: 0.88rem">{{ task.title }}</span>
             <span style="font-size: 0.75rem; color: var(--muted)">{{ task.project_name }}</span>
-            <span class="badge badge-{{ task.status }}">{{ task.status }}</span>
+            <span class="badge badge-todo">👤 {{ task.assigned_to }}</span>
+            <span class="badge badge-{{ task.status }}"> {{ task.status }}</span>
         </div>
     </a>
 

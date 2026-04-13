@@ -56,6 +56,12 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
         )
         p.spent = spent_r.scalar() or 0.0
 
+    # Upcoming tasks
+    upcoming_tasks_result = await session.execute(
+        select(Task).where(Task.status != "done").order_by(Task.due_date)
+    )
+    upcoming_tasks = upcoming_tasks_result.scalars().all()
+
     # Stats
     active = sum(1 for p in raw_projects if p.status == "active")
 
@@ -78,6 +84,7 @@ async def dashboard(request: Request, session: AsyncSession = Depends(get_sessio
         {
             "request": request,
             "projects": enriched,
+            "upcoming_tasks": upcoming_tasks,
             "recent_logs": recent_logs,
             "stats": {
                 "active_projects": active,
@@ -265,9 +272,17 @@ async def project_edit_modal(
     session: AsyncSession = Depends(get_session),
 ):
     project = await session.get(Project, project_id)
+    buildings_r = await session.execute(select(Building))
+    buildings = buildings_r.scalars().all()
+
     return templates.TemplateResponse(
         "partials/project_modal.html",
-        {"request": request, "project_id": project.id, "project": project},
+        {
+            "request": request,
+            "project_id": project.id,
+            "project": project,
+            "buildings": buildings,
+        },
     )
 
 
@@ -316,9 +331,8 @@ async def task_modal(
 @router.post("/projects/{project_id}/tasks")
 async def create_task_form(
     project_id: int,
-    request: Request,
     title: str = Form(...),
-    description: str = Form(""),
+    description: Optional[str] = Form(...),
     status: str = Form("todo"),
     priority: str = Form("normal"),
     assigned_to: str = Form(""),
@@ -328,10 +342,10 @@ async def create_task_form(
     task = Task(
         project_id=project_id,
         title=title,
-        description=description or None,
+        description=description,
         status=status,
         priority=priority,
-        assigned_to=assigned_to or None,
+        assigned_to=assigned_to,
         due_date=date.fromisoformat(due_date) if due_date else None,
     )
     session.add(task)
@@ -365,7 +379,7 @@ async def task_edit_modal(
 
 
 @router.post("/tasks/{task_id}/edit")
-async def task_update_modal(
+async def task_update(
     task_id: int,
     title: str = Form(...),
     description: Optional[str] = Form(...),
@@ -413,7 +427,7 @@ async def create_expense_form(
     date_val: date = Form(..., alias="date"),
     category: str = Form("other"),
     zone_id: Optional[int] = Form(None),
-    paid_by: str = Form(""),
+    paid_by: str = Form(...),
     session: AsyncSession = Depends(get_session),
 ):
     expense = Expense(
@@ -422,12 +436,55 @@ async def create_expense_form(
         amount=amount,
         date=date_val,
         category=category,
-        zone_id=zone_id or None,
-        paid_by=paid_by or None,
+        zone_id=zone_id,
+        paid_by=paid_by,
     )
     session.add(expense)
     await session.commit()
+    await session.refresh(expense)
     return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+@router.get("/expenses/{expense_id}/edit")
+async def expense_edit_modal(
+    expense_id: int, request: Request, session: AsyncSession = Depends(get_session)
+):
+    expense = await session.get(Expense, expense_id)
+    return templates.TemplateResponse(
+        "partials/expense_modal.html",
+        {
+            "request": request,
+            "project_id": expense.project_id,
+            "expense": expense,
+        },
+    )
+
+
+@router.post("/expenses/{expense_id}/edit")
+async def expense_update(
+    expense_id: int,
+    label: str = Form(...),
+    amount: float = Form(...),
+    category: str = Form(...),
+    paid_by: str = Form(...),
+    receipt_url: Optional[str] = Form(None),
+    notes: Optional[str] = Form(None),
+    zone_id: Optional[int] = Form(None),
+    linked_item_id: Optional[int] = Form(None),
+    session: AsyncSession = Depends(get_session),
+):
+    expense = await session.get(Expense, expense_id)
+    if expense:
+        expense.label = label
+        expense.amount = amount
+        expense.category = category
+        expense.paid_by = paid_by
+        expense.receipt_url = receipt_url
+        expense.notes = notes
+        expense.zone_id = zone_id
+        expense.linked_item_id = linked_item_id
+        await session.commit()
+    return RedirectResponse(f"/projects/{expense.project_id}", status_code=303)
 
 
 @router.get("/projects/{project_id}/inventory/new")
@@ -465,6 +522,7 @@ async def create_inventory_form(
     unit: str = Form("unit"),
     supplier: str = Form(""),
     zone_id: Optional[int] = Form(None),
+    bNewExpense: bool = Form(False),
     session: AsyncSession = Depends(get_session),
 ):
     item = InventoryItem(
@@ -478,26 +536,27 @@ async def create_inventory_form(
         zone_id=zone_id or None,
     )
 
-    exp_category = None
-    if category == "tool":
-        exp_category = "equipment"
-    elif category == "material":
-        exp_category = "material"
-    else:
-        exp_category = "other"
+    if bNewExpense:
+        exp_category = None
+        if category in ["tool", "appliance"]:
+            exp_category = "equipment"
+        elif category == "material":
+            exp_category = "material"
+        else:
+            exp_category = "other"
 
-    exp_date = item.created_at if item.created_at else date.today()
-
-    expense = Expense(
-        label=name,
-        amount=quantity,
-        category=exp_category,
-        date=exp_date,
-        project_id=project_id,
-    )
+        exp_date = item.created_at if item.created_at else date.today()
+        expense = Expense(
+            label=name,
+            amount=quantity,
+            category=exp_category,
+            date=exp_date,
+            project_id=project_id,
+            linked_item_id=item.id,
+        )
+        session.add(expense)
 
     session.add(item)
-    session.add(expense)
     await session.commit()
     return RedirectResponse(f"/projects/{project_id}", status_code=303)
 
@@ -815,26 +874,27 @@ async def inventory_create(
         notes=notes or None,
     )
 
-    exp_category = None
-    if category == "tool":
-        exp_category = "equipment"
-    elif category == "material":
-        exp_category = "material"
-    else:
-        exp_category = "other"
+    if item.unit_price != 0.0:
+        exp_category = None
+        if category in ["tool", "appliance"]:
+            exp_category = "equipment"
+        elif category == "material":
+            exp_category = "material"
+        else:
+            exp_category = "other"
 
-    exp_date = item.created_at if item.created_at else date.today()
+        exp_date = item.acquisition_date if item.acquisition_date else date.today()
 
-    expense = Expense(
-        label=name,
-        amount=item.quantity * item.unit_price,
-        category=exp_category,
-        date=exp_date,
-        project_id=project_id,
-    )
+        expense = Expense(
+            label=name,
+            amount=item.quantity * item.unit_price,
+            category=exp_category,
+            date=exp_date,
+            project_id=project_id,
+        )
+        session.add(expense)
 
     session.add(item)
-    session.add(expense)
     await session.commit()
     return RedirectResponse("/inventory", status_code=303)
 
@@ -868,7 +928,7 @@ async def inventory_update(
     status: str = Form("pending"),
     quantity: float = Form(1),
     unit: str = Form("unit"),
-    unit_price: Optional[float] = Form(None),
+    unit_price: float = Form(0),
     acquisition_date: Optional[str] = Form(None),
     supplier: str = Form(""),
     storage: str = Form(""),
@@ -877,6 +937,21 @@ async def inventory_update(
     session: AsyncSession = Depends(get_session),
 ):
     item = await session.get(InventoryItem, item_id)
+    expenses_r = await session.execute(
+        select(Expense).filter_by(linked_item_id=item_id)
+    )
+    expenses = expenses_r.scalars().all()
+    if expenses:
+        for expense in expenses:
+            expense.amount = quantity * unit_price
+            if category in ["tools", "appliance"]:
+                expense.category = "equipment"
+            elif category == "material":
+                expense.category = "material"
+            else:
+                expense.category = "other"
+            session.add(expense)
+
     if item:
         item.name = name
         item.category = category
@@ -899,6 +974,14 @@ async def inventory_update(
 @router.delete("/inventory/{item_id}")
 async def inventory_delete(item_id: int, session: AsyncSession = Depends(get_session)):
     item = await session.get(InventoryItem, item_id)
+
+    expenses_r = await session.execute(
+        select(Expense).filter_by(linked_item_id=item_id)
+    )
+    expenses = expenses_r.scalars().all()
+    for expense in expenses:
+        await session.delete(expense)
+
     if item:
         await session.delete(item)
         await session.commit()

@@ -1,424 +1,568 @@
-{% extends "base.html" %}
-{% block title %}Calendar — RenovTrack{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Calendar — RenovTrack{% endblock %} {% block content %}
 <div class="page-header">
-  <h1>Calendar</h1>
-  <div style="display:flex;gap:0.5rem;align-items:center">
-    <div style="display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden">
-      <button class="view-btn {% if view == 'month' %}active{% endif %}" onclick="setView('month')">Month</button>
-      <button class="view-btn {% if view == 'week' %}active{% endif %}"  onclick="setView('week')">Week</button>
-      <button class="view-btn {% if view == 'day' %}active{% endif %}"   onclick="setView('day')">Day</button>
+    <h1>Calendar</h1>
+    <div style="display: flex; gap: 0.5rem; align-items: center">
+        <div
+            style="
+                display: flex;
+                border: 1px solid var(--border);
+                border-radius: 3px;
+                overflow: hidden;
+            "
+        >
+            <button
+                class="view-btn {% if view == 'month' %}active{% endif %}"
+                onclick="setView('month')"
+            >
+                Month
+            </button>
+            <button
+                class="view-btn {% if view == 'week' %}active{% endif %}"
+                onclick="setView('week')"
+            >
+                Week
+            </button>
+            <button
+                class="view-btn {% if view == 'day' %}active{% endif %}"
+                onclick="setView('day')"
+            >
+                Day
+            </button>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="navigate(-1)">‹</button>
+        <button class="btn btn-secondary btn-sm" onclick="goToday()">Today</button>
+        <button class="btn btn-secondary btn-sm" onclick="navigate(1)">›</button>
     </div>
-    <button class="btn btn-secondary btn-sm" onclick="navigate(-1)">‹</button>
-    <button class="btn btn-secondary btn-sm" onclick="goToday()">Today</button>
-    <button class="btn btn-secondary btn-sm" onclick="navigate(1)">›</button>
-  </div>
 </div>
 
 <!-- Legend -->
-<div style="display:flex;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap">
-  <span class="legend-item task">Task</span>
-  <span class="legend-item log">Daily Log</span>
-  <span class="legend-item expense">Expense</span>
-  <span class="legend-item delivery">Delivery</span>
+<div style="display: flex; gap: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap">
+    <span class="legend-item task">Task</span>
+    <span class="legend-item log">Daily Log</span>
+    <span class="legend-item expense">Expense</span>
+    <span class="legend-item delivery">Delivery</span>
 </div>
 
 <!-- Period label -->
-<div id="period-label" style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:1.25rem;color:var(--accent)"></div>
+<div
+    id="period-label"
+    style="
+        font-family: &quot;Barlow Condensed&quot;, sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        margin-bottom: 1.25rem;
+        color: var(--accent);
+    "
+></div>
 
 <!-- Calendar views -->
 <div id="cal-month"></div>
-<div id="cal-week" style="display:none"></div>
-<div id="cal-day"  style="display:none"></div>
+<div id="cal-week" style="display: none"></div>
+<div id="cal-day" style="display: none"></div>
 
 <!-- Event detail popover -->
-<div id="event-popover" style="display:none;position:fixed;z-index:300;pointer-events:none"></div>
+<div
+    id="event-popover"
+    style="display: none; position: fixed; z-index: 300; pointer-events: none"
+></div>
 
 <style>
-  .view-btn {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 0.78rem; font-weight: 600;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    padding: 0.35rem 0.85rem;
-    background: transparent; border: none;
-    color: var(--muted); cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-  }
-  .view-btn.active { background: var(--border); color: var(--text); }
-  .view-btn:hover  { background: var(--border); color: var(--text); }
+    .view-btn {
+        font-family: "Barlow Condensed", sans-serif;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.35rem 0.85rem;
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        transition:
+            background 0.15s,
+            color 0.15s;
+    }
+    .view-btn.active {
+        background: var(--border);
+        color: var(--text);
+    }
+    .view-btn:hover {
+        background: var(--border);
+        color: var(--text);
+    }
 
-  .legend-item {
-    font-size: 0.72rem; font-weight: 600;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    padding: 0.2rem 0.6rem; border-radius: 2px;
-  }
-  .legend-item.task     { background: #1a2f4a; color: #5b9bd5; }
-  .legend-item.log      { background: #2a3a1a; color: #80c060; }
-  .legend-item.expense  { background: #3a2a1a; color: #c08040; }
-  .legend-item.delivery { background: #2a1a3a; color: #9060c0; }
+    .legend-item {
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.2rem 0.6rem;
+        border-radius: 2px;
+    }
+    .legend-item.task {
+        background: #1a2f4a;
+        color: #5b9bd5;
+    }
+    .legend-item.log {
+        background: #2a3a1a;
+        color: #80c060;
+    }
+    .legend-item.expense {
+        background: #3a2a1a;
+        color: #c08040;
+    }
+    .legend-item.delivery {
+        background: #2a1a3a;
+        color: #9060c0;
+    }
 
-  /* ── Month grid ── */
-  .month-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-  }
+    /* ── Month grid ── */
+    .month-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        overflow: hidden;
+    }
 
-  .month-dow {
-    font-size: 0.68rem; font-weight: 600;
-    letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--muted);
-    text-align: center;
-    padding: 0.5rem 0;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-  }
+    .month-dow {
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        text-align: center;
+        padding: 0.5rem 0;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+    }
 
-  .month-cell {
-    min-height: 90px;
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    padding: 0.35rem;
-    background: var(--bg);
-    transition: background 0.1s;
-    vertical-align: top;
-  }
+    .month-cell {
+        min-height: 90px;
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        padding: 0.35rem;
+        background: var(--bg);
+        transition: background 0.1s;
+        vertical-align: top;
+    }
 
-  .month-cell:nth-child(7n) { border-right: none; }
-  .month-cell.other-month .day-num { color: #333; }
-  .month-cell.today { background: #161610; }
-  .month-cell.today .day-num { color: var(--accent); font-weight: 700; }
+    .month-cell:nth-child(7n) {
+        border-right: none;
+    }
+    .month-cell.other-month .day-num {
+        color: #333;
+    }
+    .month-cell.today {
+        background: #161610;
+    }
+    .month-cell.today .day-num {
+        color: var(--accent);
+        font-weight: 700;
+    }
 
-  .day-num {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 0.85rem; font-weight: 600;
-    color: var(--muted);
-    margin-bottom: 0.25rem;
-    display: block;
-  }
+    .day-num {
+        font-family: "Barlow Condensed", sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--muted);
+        margin-bottom: 0.25rem;
+        display: block;
+    }
 
-  .cal-event {
-    font-size: 0.68rem; font-weight: 500;
-    padding: 0.15rem 0.4rem;
-    border-radius: 2px;
-    margin-bottom: 0.2rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
-    transition: opacity 0.1s;
-  }
-  .cal-event:hover { opacity: 0.8; }
+    .cal-event {
+        font-size: 0.68rem;
+        font-weight: 500;
+        padding: 0.15rem 0.4rem;
+        border-radius: 2px;
+        margin-bottom: 0.2rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        transition: opacity 0.1s;
+    }
+    .cal-event:hover {
+        opacity: 0.8;
+    }
 
-  .cal-event.task     { background: #1a2f4a; color: #7ab3e8; }
-  .cal-event.log      { background: #1f3015; color: #80c060; border-left: 2px solid #60a040; }
-  .cal-event.expense  { background: #2e1e08; color: #d09050; }
-  .cal-event.delivery { background: #1e1028; color: #9060c0; }
+    .cal-event.task {
+        background: #1a2f4a;
+        color: #7ab3e8;
+    }
+    .cal-event.log {
+        background: #1f3015;
+        color: #80c060;
+        border-left: 2px solid #60a040;
+    }
+    .cal-event.expense {
+        background: #2e1e08;
+        color: #d09050;
+    }
+    .cal-event.delivery {
+        background: #1e1028;
+        color: #9060c0;
+    }
 
-  /* ── Week grid ── */
-  .week-grid {
-    display: grid;
-    grid-template-columns: 52px repeat(7, 1fr);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-  }
+    /* ── Week grid ── */
+    .week-grid {
+        display: grid;
+        grid-template-columns: 52px repeat(7, 1fr);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        overflow: hidden;
+    }
 
-  .week-col-header {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 0.78rem; font-weight: 700;
-    letter-spacing: 0.06em; text-transform: uppercase;
-    text-align: center;
-    padding: 0.6rem 0.25rem;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-  }
+    .week-col-header {
+        font-family: "Barlow Condensed", sans-serif;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        text-align: center;
+        padding: 0.6rem 0.25rem;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+    }
 
-  .week-col-header.today-col { color: var(--accent); }
-  .week-col-header span { display: block; font-size: 1.4rem; font-weight: 700; line-height: 1.1; }
+    .week-col-header.today-col {
+        color: var(--accent);
+    }
+    .week-col-header span {
+        display: block;
+        font-size: 1.4rem;
+        font-weight: 700;
+        line-height: 1.1;
+    }
 
-  .week-hour-label {
-    font-size: 0.65rem; color: var(--muted);
-    text-align: right; padding: 0 0.4rem;
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid #161616;
-    height: 48px; display: flex; align-items: flex-start;
-    padding-top: 4px;
-  }
+    .week-hour-label {
+        font-size: 0.65rem;
+        color: var(--muted);
+        text-align: right;
+        padding: 0 0.4rem;
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid #161616;
+        height: 48px;
+        display: flex;
+        align-items: flex-start;
+        padding-top: 4px;
+    }
 
-  .week-cell {
-    height: 48px;
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid #161616;
-    position: relative;
-    background: var(--bg);
-  }
+    .week-cell {
+        height: 48px;
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid #161616;
+        position: relative;
+        background: var(--bg);
+    }
 
-  .week-cell.today-col { background: #121208; }
+    .week-cell.today-col {
+        background: #121208;
+    }
 
-  /* ── Day view ── */
-  .day-view { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    /* ── Day view ── */
+    .day-view {
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        overflow: hidden;
+    }
 
-  .day-section {
-    border-bottom: 1px solid var(--border);
-    padding: 0.85rem 1rem;
-  }
+    .day-section {
+        border-bottom: 1px solid var(--border);
+        padding: 0.85rem 1rem;
+    }
 
-  .day-section-title {
-    font-size: 0.68rem; font-weight: 600;
-    letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 0.6rem;
-  }
+    .day-section-title {
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 0.6rem;
+    }
 
-  .day-event {
-    display: flex; align-items: center; gap: 0.6rem;
-    padding: 0.45rem 0.6rem;
-    border-radius: 3px;
-    margin-bottom: 0.35rem;
-    font-size: 0.85rem;
-  }
+    .day-event {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.45rem 0.6rem;
+        border-radius: 3px;
+        margin-bottom: 0.35rem;
+        font-size: 0.85rem;
+    }
 
-  .day-event.task     { background: #1a2f4a; color: #7ab3e8; }
-  .day-event.log      { background: #1f3015; color: #80c060; border-left: 3px solid #60a040; }
-  .day-event.expense  { background: #2e1e08; color: #d09050; }
-  .day-event.delivery { background: #1e1028; color: #9060c0; }
+    .day-event.task {
+        background: #1a2f4a;
+        color: #7ab3e8;
+    }
+    .day-event.log {
+        background: #1f3015;
+        color: #80c060;
+        border-left: 3px solid #60a040;
+    }
+    .day-event.expense {
+        background: #2e1e08;
+        color: #d09050;
+    }
+    .day-event.delivery {
+        background: #1e1028;
+        color: #9060c0;
+    }
 
-  .day-event .ev-label { flex: 1; }
-  .day-event .ev-meta  { font-size: 0.72rem; opacity: 0.7; }
+    .day-event .ev-label {
+        flex: 1;
+    }
+    .day-event .ev-meta {
+        font-size: 0.72rem;
+        opacity: 0.7;
+    }
 
-  /* ── Popover ── */
-  .popover-box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 0.75rem 1rem;
-    font-size: 0.82rem;
-    line-height: 1.5;
-    max-width: 220px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-    pointer-events: none;
-  }
+    /* ── Popover ── */
+    .popover-box {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.75rem 1rem;
+        font-size: 0.82rem;
+        line-height: 1.5;
+        max-width: 220px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+    }
 
-  .popover-title {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 0.9rem; font-weight: 700;
-    letter-spacing: 0.04em;
-    margin-bottom: 0.3rem;
-  }
+    .popover-title {
+        font-family: "Barlow Condensed", sans-serif;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        margin-bottom: 0.3rem;
+    }
 
-  .popover-detail { color: var(--muted); font-size: 0.75rem; }
+    .popover-detail {
+        color: var(--muted);
+        font-size: 0.75rem;
+    }
 
-  @media (max-width: 640px) {
-    .month-cell { min-height: 60px; }
-    .cal-event  { font-size: 0.62rem; padding: 0.1rem 0.25rem; }
-    .day-num    { font-size: 0.75rem; }
-    .week-grid  { grid-template-columns: 36px repeat(7, 1fr); }
-    .week-col-header span { font-size: 1.1rem; }
-  }
+    @media (max-width: 640px) {
+        .month-cell {
+            min-height: 60px;
+        }
+        .cal-event {
+            font-size: 0.62rem;
+            padding: 0.1rem 0.25rem;
+        }
+        .day-num {
+            font-size: 0.75rem;
+        }
+        .week-grid {
+            grid-template-columns: 36px repeat(7, 1fr);
+        }
+        .week-col-header span {
+            font-size: 1.1rem;
+        }
+    }
 </style>
 
 <script>
-// ── State ────────────────────────────────────────────────────────────────────
-const EVENTS = {{ events_json | safe }};
+    // ── State ────────────────────────────────────────────────────────────────────
+    const EVENTS = {{ events_json | safe }};
 
-let view   = '{{ view }}';
-let cursor = new Date('{{ cursor_iso }}');
+    let view   = '{{ view }}';
+    let cursor = new Date('{{ cursor_iso }}');
 
-const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const MONTHS = ['January','February','March','April','May','June',
-                'July','August','September','October','November','December'];
+    const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const MONTHS = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
 
-function isoDate(d) {
-  return d.toISOString().slice(0,10);
-}
+    function isoDate(d) {
+      return d.toISOString().slice(0,10);
+    }
 
-function isToday(d) {
-  return isoDate(d) === isoDate(new Date());
-}
+    function isToday(d) {
+      return isoDate(d) === isoDate(new Date());
+    }
 
-// Events indexed by date string
-const byDate = {};
-EVENTS.forEach(ev => {
-  if (!byDate[ev.date]) byDate[ev.date] = [];
-  byDate[ev.date].push(ev);
-});
-
-// ── Navigation ───────────────────────────────────────────────────────────────
-function navigate(dir) {
-  if (view === 'month') cursor.setMonth(cursor.getMonth() + dir);
-  if (view === 'week')  cursor.setDate(cursor.getDate() + dir * 7);
-  if (view === 'day')   cursor.setDate(cursor.getDate() + dir);
-  render();
-}
-
-function goToday() { cursor = new Date(); render(); }
-
-function setView(v) {
-  view = v;
-  document.querySelectorAll('.view-btn').forEach(b =>
-    b.classList.toggle('active', b.textContent.trim().toLowerCase() === v)
-  );
-  render();
-}
-
-// ── Event chip HTML ──────────────────────────────────────────────────────────
-function eventChip(ev) {
-  const label = ev.title.length > 22 ? ev.title.slice(0,20) + '…' : ev.title;
-  return `<div class="cal-event ${ev.type}"
-    onmouseenter="showPopover(event, ${JSON.stringify(ev).replace(/"/g,'&quot;')})"
-    onmouseleave="hidePopover()">${label}</div>`;
-}
-
-function dayEvents(dateStr) {
-  return (byDate[dateStr] || []).map(eventChip).join('');
-}
-
-// ── Month view ───────────────────────────────────────────────────────────────
-function renderMonth() {
-  const y = cursor.getFullYear(), m = cursor.getMonth();
-  document.getElementById('period-label').textContent = `${MONTHS[m]} ${y}`;
-
-  const first = new Date(y, m, 1);
-  const startDow = first.getDay();
-  const daysInMonth = new Date(y, m+1, 0).getDate();
-  const daysInPrev  = new Date(y, m, 0).getDate();
-
-  let html = '<div class="month-grid">';
-  DOW.forEach(d => html += `<div class="month-dow">${d}</div>`);
-
-  // Prev month tail
-  for (let i = startDow - 1; i >= 0; i--) {
-    const day = daysInPrev - i;
-    const d = new Date(y, m-1, day);
-    html += `<div class="month-cell other-month">
-      <span class="day-num">${day}</span>${dayEvents(isoDate(d))}</div>`;
-  }
-
-  // Current month
-  for (let day = 1; day <= daysInMonth; day++) {
-    const d = new Date(y, m, day);
-    const cls = isToday(d) ? 'today' : '';
-    html += `<div class="month-cell ${cls}">
-      <span class="day-num">${day}</span>${dayEvents(isoDate(d))}</div>`;
-  }
-
-  // Next month fill
-  const total = startDow + daysInMonth;
-  const remaining = total % 7 === 0 ? 0 : 7 - (total % 7);
-  for (let day = 1; day <= remaining; day++) {
-    const d = new Date(y, m+1, day);
-    html += `<div class="month-cell other-month">
-      <span class="day-num">${day}</span></div>`;
-  }
-
-  html += '</div>';
-  document.getElementById('cal-month').innerHTML = html;
-}
-
-// ── Week view ────────────────────────────────────────────────────────────────
-function renderWeek() {
-  const dow = cursor.getDay();
-  const weekStart = new Date(cursor);
-  weekStart.setDate(cursor.getDate() - dow);
-
-  const days = Array.from({length:7}, (_, i) => {
-    const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d;
-  });
-
-  const startStr = `${MONTHS[weekStart.getMonth()].slice(0,3)} ${weekStart.getDate()}`;
-  const endD = days[6];
-  const endStr = `${MONTHS[endD.getMonth()].slice(0,3)} ${endD.getDate()}, ${endD.getFullYear()}`;
-  document.getElementById('period-label').textContent = `${startStr} – ${endStr}`;
-
-  // All-day section: tasks, logs, expenses, deliveries
-  let html = '<div class="week-grid">';
-
-  // Header row
-  html += '<div class="week-col-header" style="background:var(--bg);border-bottom:1px solid var(--border)"></div>';
-  days.forEach(d => {
-    const todayCls = isToday(d) ? 'today-col' : '';
-    html += `<div class="week-col-header ${todayCls}">
-      ${DOW[d.getDay()]}<span>${d.getDate()}</span></div>`;
-  });
-
-  // All-day events row
-  html += '<div class="week-hour-label" style="font-size:0.6rem;color:#333">ALL DAY</div>';
-  days.forEach(d => {
-    const todayCls = isToday(d) ? 'today-col' : '';
-    html += `<div class="week-cell ${todayCls}" style="height:auto;min-height:48px;padding:0.2rem">
-      ${dayEvents(isoDate(d))}</div>`;
-  });
-
-  html += '</div>';
-  document.getElementById('cal-week').innerHTML = html;
-}
-
-// ── Day view ─────────────────────────────────────────────────────────────────
-function renderDay() {
-  const label = `${DOW[cursor.getDay()]}, ${MONTHS[cursor.getMonth()]} ${cursor.getDate()}, ${cursor.getFullYear()}`;
-  document.getElementById('period-label').textContent = label;
-
-  const dateStr = isoDate(cursor);
-  const evs = byDate[dateStr] || [];
-
-  const groups = { task: [], log: [], expense: [], delivery: [] };
-  evs.forEach(ev => { if (groups[ev.type]) groups[ev.type].push(ev); });
-
-  const titles = { task:'Tasks Due', log:'Daily Log', expense:'Expenses', delivery:'Deliveries' };
-
-  let html = '<div class="day-view">';
-
-  if (evs.length === 0) {
-    html += `<div class="day-section" style="color:var(--muted);font-size:0.88rem;text-align:center;padding:2.5rem">
-      Nothing recorded for this day.</div>`;
-  }
-
-  Object.entries(groups).forEach(([type, items]) => {
-    if (!items.length) return;
-    html += `<div class="day-section"><div class="day-section-title">${titles[type]}</div>`;
-    items.forEach(ev => {
-      html += `<div class="day-event ${type}">
-        <span class="ev-label">${ev.title}</span>
-        ${ev.meta ? `<span class="ev-meta">${ev.meta}</span>` : ''}
-      </div>`;
+    // Events indexed by date string
+    const byDate = {};
+    EVENTS.forEach(ev => {
+      if (!byDate[ev.date]) byDate[ev.date] = [];
+      byDate[ev.date].push(ev);
     });
-    html += '</div>';
-  });
 
-  html += '</div>';
-  document.getElementById('cal-day').innerHTML = html;
-}
+    // ── Navigation ───────────────────────────────────────────────────────────────
+    function navigate(dir) {
+      if (view === 'month') cursor.setMonth(cursor.getMonth() + dir);
+      if (view === 'week')  cursor.setDate(cursor.getDate() + dir * 7);
+      if (view === 'day')   cursor.setDate(cursor.getDate() + dir);
+      render();
+    }
 
-// ── Popover ──────────────────────────────────────────────────────────────────
-function showPopover(e, ev) {
-  const pop = document.getElementById('event-popover');
-  pop.innerHTML = `<div class="popover-box">
-    <div class="popover-title">${ev.title}</div>
-    <div class="popover-detail">${ev.meta || ''}</div>
-  </div>`;
-  pop.style.display = 'block';
-  pop.style.left = (e.clientX + 12) + 'px';
-  pop.style.top  = (e.clientY + 12) + 'px';
-}
-function hidePopover() {
-  document.getElementById('event-popover').style.display = 'none';
-}
+    function goToday() { cursor = new Date(); render(); }
 
-// ── Render dispatcher ────────────────────────────────────────────────────────
-function render() {
-  ['month','week','day'].forEach(v => {
-    document.getElementById('cal-' + v).style.display = v === view ? 'block' : 'none';
-  });
-  if (view === 'month') renderMonth();
-  if (view === 'week')  renderWeek();
-  if (view === 'day')   renderDay();
-}
+    function setView(v) {
+      view = v;
+      document.querySelectorAll('.view-btn').forEach(b =>
+        b.classList.toggle('active', b.textContent.trim().toLowerCase() === v)
+      );
+      render();
+    }
 
-render();
+    // ── Event chip HTML ──────────────────────────────────────────────────────────
+    function eventChip(ev) {
+      const label = ev.title.length > 22 ? ev.title.slice(0,20) + '…' : ev.title;
+      return `<div class="cal-event ${ev.type}"
+        onmouseenter="showPopover(event, ${JSON.stringify(ev).replace(/"/g,'&quot;')})"
+        onmouseleave="hidePopover()">${label}</div>`;
+    }
+
+    function dayEvents(dateStr) {
+      return (byDate[dateStr] || []).map(eventChip).join('');
+    }
+
+    // ── Month view ───────────────────────────────────────────────────────────────
+    function renderMonth() {
+      const y = cursor.getFullYear(), m = cursor.getMonth();
+      document.getElementById('period-label').textContent = `${MONTHS[m]} ${y}`;
+
+      const first = new Date(y, m, 1);
+      const startDow = first.getDay();
+      const daysInMonth = new Date(y, m+1, 0).getDate();
+      const daysInPrev  = new Date(y, m, 0).getDate();
+
+      let html = '<div class="month-grid">';
+      DOW.forEach(d => html += `<div class="month-dow">${d}</div>`);
+
+      // Prev month tail
+      for (let i = startDow - 1; i >= 0; i--) {
+        const day = daysInPrev - i;
+        const d = new Date(y, m-1, day);
+        html += `<div class="month-cell other-month">
+          <span class="day-num">${day}</span>${dayEvents(isoDate(d))}</div>`;
+      }
+
+      // Current month
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(y, m, day+1);
+        const cls = isToday(d) ? 'today' : '';
+        html += `<div class="month-cell ${cls}">
+          <span class="day-num">${day}</span>${dayEvents(isoDate(d))}</div>`;
+      }
+
+      // Next month fill
+      const total = startDow + daysInMonth;
+      const remaining = total % 7 === 0 ? 0 : 7 - (total % 7);
+      for (let day = 1; day <= remaining; day++) {
+        const d = new Date(y, m+1, day);
+        html += `<div class="month-cell other-month">
+          <span class="day-num">${day}</span></div>`;
+      }
+
+      html += '</div>';
+      document.getElementById('cal-month').innerHTML = html;
+    }
+
+    // ── Week view ────────────────────────────────────────────────────────────────
+    function renderWeek() {
+      const dow = cursor.getDay();
+      const weekStart = new Date(cursor);
+      weekStart.setDate(cursor.getDate() - dow);
+
+      const days = Array.from({length:7}, (_, i) => {
+        const d = new Date(weekStart); d.setDate(weekStart.getDate() + i); return d;
+      });
+
+      const startStr = `${MONTHS[weekStart.getMonth()].slice(0,3)} ${weekStart.getDate()}`;
+      const endD = days[6];
+      const endStr = `${MONTHS[endD.getMonth()].slice(0,3)} ${endD.getDate()}, ${endD.getFullYear()}`;
+      document.getElementById('period-label').textContent = `${startStr} – ${endStr}`;
+
+      // All-day section: tasks, logs, expenses, deliveries
+      let html = '<div class="week-grid">';
+
+      // Header row
+      html += '<div class="week-col-header" style="background:var(--bg);border-bottom:1px solid var(--border)"></div>';
+      days.forEach(d => {
+        const todayCls = isToday(d) ? 'today-col' : '';
+        html += `<div class="week-col-header ${todayCls}">
+          ${DOW[d.getDay()]}<span>${d.getDate()}</span></div>`;
+      });
+
+      // All-day events row
+      html += '<div class="week-hour-label" style="font-size:0.6rem;color:#333">ALL DAY</div>';
+      days.forEach(d => {
+        const todayCls = isToday(d) ? 'today-col' : '';
+        html += `<div class="week-cell ${todayCls}" style="height:auto;min-height:48px;padding:0.2rem">
+          ${dayEvents(isoDate(d))}</div>`;
+      });
+
+      html += '</div>';
+      document.getElementById('cal-week').innerHTML = html;
+    }
+
+    // ── Day view ─────────────────────────────────────────────────────────────────
+    function renderDay() {
+      const label = `${DOW[cursor.getDay()]}, ${MONTHS[cursor.getMonth()]} ${cursor.getDate()}, ${cursor.getFullYear()}`;
+      document.getElementById('period-label').textContent = label;
+
+      const dateStr = isoDate(cursor);
+      const evs = byDate[dateStr] || [];
+
+      const groups = { task: [], log: [], expense: [], delivery: [] };
+      evs.forEach(ev => { if (groups[ev.type]) groups[ev.type].push(ev); });
+
+      const titles = { task:'Tasks Due', log:'Daily Log', expense:'Expenses', delivery:'Deliveries' };
+
+      let html = '<div class="day-view">';
+
+      if (evs.length === 0) {
+        html += `<div class="day-section" style="color:var(--muted);font-size:0.88rem;text-align:center;padding:2.5rem">
+          Nothing recorded for this day.</div>`;
+      }
+
+      Object.entries(groups).forEach(([type, items]) => {
+        if (!items.length) return;
+        html += `<div class="day-section"><div class="day-section-title">${titles[type]}</div>`;
+        items.forEach(ev => {
+          html += `<div class="day-event ${type}">
+            <span class="ev-label">${ev.title}</span>
+            ${ev.meta ? `<span class="ev-meta">${ev.meta}</span>` : ''}
+          </div>`;
+        });
+        html += '</div>';
+      });
+
+      html += '</div>';
+      document.getElementById('cal-day').innerHTML = html;
+    }
+
+    // ── Popover ──────────────────────────────────────────────────────────────────
+    function showPopover(e, ev) {
+      const pop = document.getElementById('event-popover');
+      pop.innerHTML = `<div class="popover-box">
+        <div class="popover-title">${ev.title}</div>
+        <div class="popover-detail">${ev.meta || ''}</div>
+      </div>`;
+      pop.style.display = 'block';
+      pop.style.left = (e.clientX + 12) + 'px';
+      pop.style.top  = (e.clientY + 12) + 'px';
+    }
+    function hidePopover() {
+      document.getElementById('event-popover').style.display = 'none';
+    }
+
+    // ── Render dispatcher ────────────────────────────────────────────────────────
+    function render() {
+      ['month','week','day'].forEach(v => {
+        document.getElementById('cal-' + v).style.display = v === view ? 'block' : 'none';
+      });
+      if (view === 'month') renderMonth();
+      if (view === 'week')  renderWeek();
+      if (view === 'day')   renderDay();
+    }
+
+    render();
 </script>
 {% endblock %}

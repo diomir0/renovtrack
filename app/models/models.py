@@ -219,7 +219,7 @@ class ExpenseBase(SQLModel):
     amount: float
     date: date
     category: str = "other"  # labor | material | equipment | other
-    paid_by: Optional[str] = None
+    paid_by: str
     receipt_url: Optional[str] = None
     notes: Optional[str] = None
 

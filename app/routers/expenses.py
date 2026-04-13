@@ -42,7 +42,7 @@ async def expense_summary(
 async def create_expense(
     expense: ExpenseCreate, session: AsyncSession = Depends(get_session)
 ):
-    db_expense = Expense.from_orm(expense)
+    db_expense = Expense.model_validate(expense)
     session.add(db_expense)
     await session.commit()
     await session.refresh(db_expense)
@@ -66,7 +66,7 @@ async def update_expense(
     expense = await session.get(Expense, expense_id)
     if not expense:
         raise HTTPException(status_code=404, detail="Task not found")
-    for key, value in updates.dict(exclude_unset=True).items():
+    for key, value in updates.model_dump(exclude_unset=True).items():
         setattr(expense, key, value)
     session.add(expense)
     await session.commit()
