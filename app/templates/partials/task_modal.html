@@ -61,7 +61,7 @@
                 <button class="btn btn-danger btn-sm"
                   hx-delete="/tasks/{{ task.id }}"
                   hx-confirm="Delete {{ task.title }}?"
-                  hx-target="closest tr"
+                  hx-target="this"
                   hx-swap="outerHTML"
                   style="margin-left:0.25rem">Delete
                 </button>

@@ -186,7 +186,7 @@ async def create_project_form(
     building_id: int = Form(...),
     description: str = Form(""),
     status: str = Form("planning"),
-    budget_total: float = Form(0.0),
+    budget_total: float = Form(...),
     start_date: Optional[str] = Form(None),
     estimated_end_date: Optional[str] = Form(None),
     session: AsyncSession = Depends(get_session),
@@ -287,10 +287,10 @@ async def project_edit_modal(
 
 
 @router.post("/projects/{project_id}/edit")
-async def project_update_modal(
+async def project_update(
     project_id: int,
     name: str = Form(...),
-    building: Optional[str] = Form(...),
+    building_id: int = Form(...),
     description: Optional[str] = Form(...),
     status: str = Form(...),
     budget_total: float = Form(...),
@@ -299,16 +299,53 @@ async def project_update_modal(
     session: AsyncSession = Depends(get_session),
 ):
     project = await session.get(Project, project_id)
-    if project:
+    building = await session.get(Building, building_id)
+    if project and building:
         project.name = name
-        project.building = building if building else None
+        project.building_id = building_id
+        project.building = building
         project.description = description if description else None
         project.status = status
         project.budget_total = budget_total
         project.start_date = start_date if start_date else None
         project.estimated_end_date = estimated_end_date if estimated_end_date else None
         await session.commit()
-    return RedirectResponse(f"/projects/{project_id}")
+    return RedirectResponse(f"/projects/{project_id}", status_code=303)
+
+
+@router.delete("/projects/{project_id}")
+async def project_delete(project_id: int, session: AsyncSession = Depends(get_session)):
+    project = await session.get(Project, project_id)
+
+    expenses_r = await session.execute(
+        select(Expense).where(Expense.project_id == project_id)
+    )
+    expenses = expenses_r.scalars().all()
+
+    tasks_r = await session.execute(select(Task).where(Task.project_id == project_id))
+    tasks = tasks_r.scalars().all()
+
+    logs_r = await session.execute(
+        select(DailyLog).where(DailyLog.project_id == project_id)
+    )
+    logs = logs_r.scalars().all()
+
+    for expense in expenses:
+        await session.delete(expense)
+        await session.commit()
+
+    for task in tasks:
+        await session.delete(task)
+        await session.commit()
+
+    for log in logs:
+        await session.delete(log)
+        await session.commit()
+
+    if project:
+        await session.delete(project)
+        await session.commit()
+    return HTMLResponse("")
 
 
 # ── HTMX modal partials ───────────────────────────────────────────────────────
@@ -844,7 +881,7 @@ async def inventory_new_modal(
 async def inventory_create(
     request: Request,
     name: str = Form(...),
-    project_id: int = Form(...),
+    project_id: Optional[int] = Form(None),
     category: str = Form("material"),
     status: str = Form("pending"),
     quantity: float = Form(1),
@@ -859,7 +896,7 @@ async def inventory_create(
 ):
     item = InventoryItem(
         name=name,
-        project_id=project_id,
+        project_id=project_id or None,
         category=category,
         status=status,
         quantity=quantity,
@@ -874,7 +911,7 @@ async def inventory_create(
         notes=notes or None,
     )
 
-    if item.unit_price != 0.0:
+    if item.unit_price != 0.0 and project_id:
         exp_category = None
         if category in ["tool", "appliance"]:
             exp_category = "equipment"
@@ -995,7 +1032,7 @@ async def inventory_delete(item_id: int, session: AsyncSession = Depends(get_ses
 async def logs_page(
     request: Request,
     building_id: Optional[int] = Query(default=None),
-    project_id: Optional[int] = Query(default=1),
+    project_id: Optional[int] = Query(default=None),
     session: AsyncSession = Depends(get_session),
 ):
     # Fetch all buildings and projects for filter dropdowns

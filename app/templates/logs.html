@@ -22,9 +22,7 @@
   <select id="project-filter" onchange="applyFilters()" style="width:auto;padding:0.35rem 0.65rem;font-size:0.8rem">
     <option value="">All projects</option>
     {% for p in projects %}
-    <option value="{{ p.id }}"
-      data-building="{{ p.building_id }}"
-      {{ 'selected' if selected_project_id == p.id }}>{{ p.name }}</option>
+    <option value="{{ p.id }}" {{ 'selected' if selected_project_id == p.id }}>{{ p.name }}</option>
     {% endfor %}
   </select>
 

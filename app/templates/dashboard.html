@@ -49,14 +49,12 @@
                 <span>Due: {{ p.project.estimated_end_date }}</span>
                 {% endif %}
             </div>
-            {% if p.project.budget_total and p.project.expenses %}
             <div class="progress-bar">
                 <div
                     class="progress-fill"
                     style="width:{{ [p.spent / p.project.budget_total * 100, 100]|min }}%"
                 ></div>
             </div>
-            {% endif %}
         </div>
     </a>
     {% endfor %}

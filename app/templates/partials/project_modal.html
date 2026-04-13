@@ -23,8 +23,7 @@
                 <textarea
                     name="description"
                     placeholder="Optional details..."
-                    value="{{ project.description }}"
-                ></textarea>
+                >{{ project.description if project }}</textarea>
             </div>
             <div class="form-row">
                 <div class="form-group">
@@ -66,8 +65,9 @@
                 <button class="btn btn-danger btn-sm"
                   hx-delete="/projects/{{ project.id }}"
                   hx-confirm="Delete {{ project.name }}?"
-                  hx-target="closest tr"
+                  hx-target="this"
                   hx-swap="outerHTML"
+                  onclick="closemodal()"
                   style="margin-left:0.25rem">Delete
                 </button>
                 <button type="submit" class="btn btn-primary">

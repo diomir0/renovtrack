@@ -72,6 +72,15 @@
                 <button type="button" class="btn btn-secondary" onclick="closeModal()">
                     Cancel
                 </button>
+                {% if expense %}
+                <button class="btn btn-danger btn-sm"
+                  hx-delete="/expenses/{{ expense.id }}"
+                  hx-confirm="Delete {{ expense.label }}?"
+                  hx-target="this"
+                  hx-swap="outerHTML"
+                  style="margin-left:0.25rem">Delete
+                </button>
+                {% endif %}
                 <button type="submit" class="btn btn-primary">
                     {{ 'Save Changes' if expense else 'Create Expense' }}
                 </button>

@@ -68,7 +68,7 @@ class Project(ProjectBase, table=True):
     building_id: int = Field(foreign_key="building.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    building: Optional[Building] = Relationship(back_populates="projects")
+    building: Building = Relationship(back_populates="projects")
     zones: List["Zone"] = Relationship(back_populates="project")
     tasks: List["Task"] = Relationship(back_populates="project")
     inventory_items: List["InventoryItem"] = Relationship(back_populates="project")
@@ -181,7 +181,7 @@ class InventoryItemBase(SQLModel):
 
 class InventoryItem(InventoryItemBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id")
+    project_id: Optional[int] = Field(foreign_key="project.id")
     zone_id: Optional[int] = Field(default=None, foreign_key="zone.id")
     linked_task_id: Optional[int] = Field(default=None, foreign_key="task.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -198,14 +198,14 @@ class InventoryItem(InventoryItemBase, table=True):
 
 
 class InventoryItemCreate(InventoryItemBase):
-    project_id: int
+    project_id: Optional[int] = None
     zone_id: Optional[int] = None
     linked_task_id: Optional[int] = None
 
 
 class InventoryItemRead(InventoryItemBase):
     id: int
-    project_id: int
+    project_id: Optional[int]
     zone_id: Optional[int]
     linked_task_id: Optional[int]
     created_at: datetime
