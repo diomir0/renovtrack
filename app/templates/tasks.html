@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Task Manager — RenovTrack{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Task Manager</h1>
+  <button class="btn btn-primary btn-sm"
+    hx-get="/tasks/new"
+    hx-target="#modal-container"
+    hx-swap="innerHTML">+ New Log</button>
+</div>
+
+<!-- Filters -->
+<div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:2rem;flex-wrap:wrap">
+  <select id="building-filter" onchange="onBuildingChange()" style="width:auto;padding:0.35rem 0.65rem;font-size:0.8rem">
+    <option value="">All buildings</option>
+    {% for b in buildings %}
+    <option value="{{ b.id }}" {{ 'selected' if selected_building_id == b.id }}>{{ b.name }}</option>
+    {% endfor %}
+  </select>
+
+  <select id="project-filter" onchange="applyFilters()" style="width:auto;padding:0.35rem 0.65rem;font-size:0.8rem">
+    <option value="">All projects</option>
+    {% for p in projects %}
+    <option value="{{ p.id }}"
+      data-building="{{ p.building_id }}"
+      {{ 'selected' if selected_project_id == p.id }}>{{ p.name }}</option>
+    {% endfor %}
+  </select>
+
+  {% if selected_building_id or selected_project_id %}
+  <a href="/tasks" style="font-size:0.78rem;color:var(--muted);text-decoration:none">✕ Clear filters</a>
+  {% endif %}
+
+  <span style="margin-left:auto;font-size:0.78rem;color:var(--muted)">
+    {{ total_tasks }} task{{ 's' if total_tasks != 1 }} · {{ total_hours }}h total
+  </span>
+</div>
+
+<!-- Logs grouped by project -->
+{% if grouped_tasks %}
+  {% for id, tasks in grouped_tasks.items() %}
+  <div style="margin-bottom:2.5rem">
+    {% set project = projects[id-1] %}
+
+    <!-- Project header -->
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;padding-bottom:0.6rem;border-bottom:1px solid var(--border)">
+      <a href="/projects/{{ project.id }}" style="text-decoration:none">
+        <h2 style="font-family:'Barlow Condensed',sans-serif;font-size:1.15rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--text)">
+          {{ project.name }}
+        </h2>
+      </a>
+      <span class="badge badge-{{ project.status }}">{{ project.status }}</span>
+      {% if project.building.name %}
+      <span style="font-size:0.75rem;color:var(--muted)">{{ project.building.name }}</span>
+      {% endif %}
+      <span style="margin-left:auto;font-size:0.78rem;color:var(--muted)">
+        {{ logs|length }} log{{ 's' if logs|length != 1 }}
+        · {{ logs|sum(attribute='time_spent_hours') }}h
+      </span>
+    </div>
+
+    <!-- Tasks cards -->
+    <div style="display:flex;flex-direction:column;gap:0.75rem">
+      {% for task in tasks %}
+      <div class="card" style="padding:1rem 1.25rem">
+
+        <!-- Card header -->
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:0.6rem;gap:1rem;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:0.75rem">
+            <span style="font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:700;letter-spacing:0.05em;color:var(--accent)">
+              {{ log.date.strftime('%a %d %b %Y') }}
+            </span>
+            {% if log.zone_name %}
+            <span style="font-size:0.72rem;color:var(--muted);background:var(--border);padding:0.15rem 0.45rem;border-radius:2px">
+              {{ log.zone_name }}
+            </span>
+            {% endif %}
+          </div>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <span style="font-size:0.78rem;color:var(--muted)">by {{ log.author }}</span>
+            <button class="btn btn-secondary btn-sm"
+              hx-get="/logs/{{ log.id }}/edit"
+              hx-target="#modal-container"
+              hx-swap="innerHTML">
+                  Edit
+            </button>
+            <button class="btn btn-danger btn-sm"
+              hx-delete="/logs/{{ log.id }}"
+              hx-confirm="Delete this log entry?"
+              hx-target="closest .card"
+              hx-swap="outerHTML">
+                  ✕
+              </button>
+          </div>
+        </div>
+
+        <!-- Deceription -->
+        {% if task.description %}
+        <p style="font-size:0.88rem;line-height:1.55;margin-bottom:0.75rem;color:var(--text)">
+          {{ task.description }}
+        </p>
+        {% endif %}
+
+        <!-- Chips row -->
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+
+          <!-- Time -->
+          <span style="display:inline-flex;align-items:center;gap:0.3rem;font-size:0.75rem;font-weight:500;background:#1a2a1a;color:#70b060;padding:0.2rem 0.55rem;border-radius:2px">
+            ⏱ {{ task.time_spent_hours }}h
+          </span>
+
+          <!-- People -->
+          {% if task.assigned_to %}
+          <span style="font-size:0.75rem;background:var(--border);color:var(--muted);padding:0.2rem 0.55rem;border-radius:2px">
+            👤 {{ task.assigned_to }}
+          </span>
+          {% endif %}
+
+          <!-- Tasks completed -->
+          <!--{% for task in log.tasks_done %}
+          <span style="display:inline-flex;align-items:center;gap:0.3rem;font-size:0.75rem;background:#1a2f4a;color:#7ab3e8;padding:0.2rem 0.55rem;border-radius:2px"
+                title="Task completed">
+            ✓ {{ task.title }}
+          </span>
+          {% endfor %}-->
+
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📅</div>
+  <p>No tasks yet{% if selected_project_id or selected_building_id %} for this filter{% endif %}. Start by creating one.</p>
+  <button class="btn btn-primary btn-sm"
+    style="margin-top:1.25rem"
+    hx-get="/logs/new{% if selected_project_id %}?project_id={{ selected_project_id }}{% endif %}"
+    hx-target="#modal-container"
+    hx-swap="innerHTML">+ New Log</button>
+</div>
+{% endif %}
+
+<script>
+// Cascade: selecting a building narrows the project dropdown
+function onBuildingChange() {
+  const bid = document.getElementById('building-filter').value;
+  const psel = document.getElementById('project-filter');
+  Array.from(psel.options).forEach(opt => {
+    if (!opt.value) return; // keep "All projects"
+    opt.style.display = (!bid || opt.dataset.building === bid) ? '' : 'none';
+  });
+  // Reset project selection if it no longer matches
+  const selected = psel.options[psel.selectedIndex];
+  if (selected.value && selected.style.display === 'none') {
+    psel.value = '';
+  }
+  applyFilters();
+}
+
+function applyFilters() {
+  const bid = document.getElementById('building-filter').value;
+  const pid = document.getElementById('project-filter').value;
+  const url = new URL(window.location.href);
+  bid ? url.searchParams.set('building_id', bid) : url.searchParams.delete('building_id');
+  pid ? url.searchParams.set('project_id', pid)  : url.searchParams.delete('project_id');
+  window.location.href = url.toString();
+}
+</script>
+
+{% endblock %}
