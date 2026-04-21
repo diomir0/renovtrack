@@ -921,6 +921,83 @@ async def inventory_delete(item_id: int, session: AsyncSession = Depends(get_ses
     return HTMLResponse("")
 
 
+# ── Tasks list page ──────────────────────────────────────────────────────
+
+
+@router.get("/tasks")
+async def tasks_page(
+    request: Request,
+    building_id: Optional[int] = Query(default=None),
+    project_id: Optional[int] = Query(default=1),
+    session: AsyncSession = Depends(get_session),
+):
+    # Fetch all buildings and projects for filter dropdown
+    buildings_r = await session.execute(select(Building))
+    buildings = buildings_r.scalars().all()
+
+    result = await session.execute(
+        select(Project).options(selectinload(Project.building))
+    )
+    # projects_r = await session.execute(select(Project))
+    all_projects = result.scalars().all()
+
+    # Build lookup maps
+    # building_map = {b.id: b for b in buildings}
+    project_map = {p.id: p for p in all_projects}
+
+    # Filter projects by building if requested
+    if building_id:
+        visible_project_ids = {
+            p.id for p in all_projects if p.building_id == building_id
+        }
+    elif project_id:
+        visible_project_ids = {project_id}
+    else:
+        visible_project_ids = {p.id for p in all_projects}
+
+    # Fetch logs, filtered
+    q = (
+        select(Task)
+        .where(Task.project_id.in_(visible_project_ids))
+        .order_by(Task.project_id, Task.due_date.desc())
+    )
+    tasks_r = await session.execute(q)
+    raw_tasks = tasks_r.scalars().all()
+
+    # Fetch zones
+    zones_r = await session.execute(select(Zone))
+    zone_map = {z.id: z.name for z in zones_r.scalars().all()}
+
+    # Group by project, preserving project order
+    grouped_tasks = {}
+    for task in raw_tasks:
+        p = project_map.get(task.project_id)
+        if p.id not in grouped_tasks.keys():
+            grouped_tasks[p.id] = []
+        grouped_tasks[p.id].append(task)
+
+    root_tasks = []
+    for t in raw_tasks:
+        if not t.parent_task_id:
+            root_tasks.append(t)
+
+    total_tasks = len(root_tasks)
+
+    return templates.TemplateResponse(
+        "tasks.html",
+        {
+            "request": request,
+            "grouped_logs": grouped_tasks,
+            "buildings": buildings,
+            "projects": all_projects,
+            "selected_building_id": building_id,
+            "selected_project_id": project_id,
+            "total_logs": total_tasks,
+            # "total_hours": total_hours,
+        },
+    )
+
+
 # ── Daily logs list page ──────────────────────────────────────────────────────
 
 

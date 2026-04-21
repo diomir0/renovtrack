@@ -580,6 +580,9 @@
                     class="{% if '/calendar' in request.url.path %}active{% endif %}"
                     >Calendar</a
                 >
+                <a href="/tasks" class="{% if '/tasks' in request.url.path %}active{% endif %}"
+                    >Tasks</a
+                >
                 <a
                     href="/logs"
                     class="{% if request.url.path == '/logs' or request.url.path.startswith('/logs/') %}active{% endif %}"
