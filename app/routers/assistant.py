@@ -1,18 +1,7 @@
 import json
 
 import httpx
-from azure.identity import DeviceCodeCredential
 from fastapi import APIRouter, Depends, HTTPException
-from kiota_abstractions.api_error import APIError
-from microsoft_agents_m365copilot.agents_m365_copilot_service_client import (
-    AgentsM365CopilotServiceClient,
-)
-from microsoft_agents_m365copilot.generated.copilot.retrieval.retrieval_post_request_body import (
-    RetrievalPostRequestBody,
-)
-from microsoft_agents_m365copilot.generated.models.retrieval_data_source import (
-    RetrievalDataSource,
-)
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import func, select
